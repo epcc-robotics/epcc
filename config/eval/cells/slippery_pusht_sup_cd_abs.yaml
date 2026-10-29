@@ -1,0 +1,123 @@
+# @package _global_
+# Slippery PushT — SuP over the ABSOLUTE-action CleanDiffuser DP, run under OUR
+# table's evaluation condition.
+#
+# Two things changed at once and both were asked for:
+#   1. backbone: robomimic DP-repo -> CleanDiffuser (2026-07-31), keeping Slippery's absolute
+#      action abstraction so DP / SuP / SkiP / SAIL there share one abstraction.
+#   2. generation: the scheduler and the backbone are both on the PARK demos now,
+#      matching DP / DTG-MPCC / SkiP. iql_*_park.pt, dataset ..._park.h5.
+#
+# Evaluation condition is deliberately OURS, not the shipped SuP cell's. The
+# original cell (baseline_corl_v2/slippery_pusht_sup_state_gate.yaml, not shipped) runs
+# eval_budget 435 with full=false, history_size 1 and goal_offset 20; every
+# other row of our table runs 594 / full=true / 3 / 25. A row can only join the
+# table under the table's condition. The original numbers came
+# from that cell.
+#
+# Walls are OFF here (escapable_block). Measured effect (job 11602235): with
+# damping 0.35 a driven block reaches x=844 and ends 332 px outside the arena,
+# whereas walls-on it rebounds off the wall back to x=189. Slippery numbers
+# taken with walls on therefore carried a wall-rebound term.
+# ⚠️ Once ejected the block is off-screen, so any pixel-conditioned policy sees
+# an empty arena. That is a real failure, not an artifact — but it does mean
+# `success_rate` (ever-reached) hides late divergence. Report held.
+#
+# Table rows produced from this one cell:
+#   DP (absolute)  : policy.sup.score_mode=none policy.sup.fixed_k=1
+#   fixed-k sweep  : policy.sup.score_mode=none policy.sup.fixed_k=K
+#   SuP faithful   : policy.sup.channel=robot policy.sup.adm_path=...adm_A.pt
+#                    policy.sup.iql_path=...iql_robot_park.pt
+#   SuP ours       : defaults below (channel=full)
+defaults:
+  - /task: pusht
+  - /policy: sup_gated_dp_cd_abs
+  - _self_
+
+seed: 42
+cache_dir: ${oc.env:STABLEWM_HOME}
+
+output:
+  run_name: slippery_pusht_sup_cd_abs_park_n50
+  findings_dir: findings/260521_baseline_setup
+  logdir_subkey: logs_sh_repro_wallsoff
+
+task:
+  policy_config_group: slippery_pusht/lewm
+  eval_budget: 594
+  control_timestep_s: 0.1
+
+diffusion:
+  # Absolute-action CleanDiffuser DP trained on the PARK slippery demos.
+  # The first attempt (job 11596881, exp_name slip_abs_cd) trained on the
+  # NON-park set — 81,310 frames vs park's 101,310 — and is kept only as the
+  # control that pairs with iql_*_nonpark.pt.
+  ckpt_path: ${cache_dir_scratch}/dp_pusht_sv_image_abs/slip_abs_cd_park/42/models/model_final.pt
+  train_h5_path: ${cache_dir}/slippery_pusht/data/expert_slow_050_n200_d035_park.h5
+  nn: chi_unet
+  horizon: 16
+  obs_steps: 2
+  action_steps: 8
+  action_dim: 2
+  image_size: 96
+  n_views: 1
+  crop_shape: [84, 84]
+  sample_steps: 50
+  use_group_norm: true
+  use_seq: true
+
+# CleanDiffuser training output root (see docs/DATA.md).
+cache_dir_scratch: ${cache_dir}/train/dp
+
+plan_config:
+  horizon: 5
+  # action_block * receding_horizon = 15 = the chunk length C the IQL was built
+  # with (build_iql_dataset.py default). Keeping them equal is what removed the
+  # 39-vs-37 truncation the DP-repo path suffered (scripts/sup/README #1).
+  receding_horizon: 15
+  action_block: 1
+  use_past_context: true
+
+solver:
+  inner_solver:
+    physical_dim: 2
+    n_steps: 30
+
+world:
+  env_name: ${task.env_name}
+  num_envs: ${eval.num_eval}
+  # 2 x eval_budget, matching every slippery park run's meta.json (1188/594).
+  # NOT ${task.eval_budget}: `full: true` grows the budget at runtime from the
+  # dataset episode lengths, and a TimeLimit equal to the pre-growth budget
+  # truncates the episode before it has spent the budget it was granted.
+  max_episode_steps: 1188
+  history_size: 3
+  frame_skip: 1
+  resolution: 96
+  damping: 0.35
+  escapable_block: true
+
+dataset:
+  stats: ${task.dataset_stats}   # DP uses its own normalizer; unused here
+  keys_to_cache:
+    - action
+    - state
+
+full: true
+
+eval:
+  num_eval: ${task.num_eval}
+  eval_budget: ${task.eval_budget}
+  # Initial states come from the NON-park demo set, exactly as every champion
+  # and park-generation run does — park changes what is trained on, not which
+  # initial conditions are evaluated.
+  dataset_name: slippery_pusht/data/expert_slow_050_n200_d035
+  goal_offset_steps: 25
+  debug_video: false
+  img_size: 96
+  start_offset: 5
+  callables:
+    - method: _set_state
+      args:
+        state:
+          value: state

@@ -1,0 +1,20 @@
+# @package task
+# Task spec — env + success spec + dataset + metrics class for PushT.
+task_name: pusht
+env_name: swm/PushT-v1
+# GT-ref / init dataset (slow c=0.25 expert, centered v2).
+# swm prepends datasets/ → $STABLEWM_HOME/datasets/expert_slow_025_n200_centered_v2.h5
+dataset_name: expert_slow_025_n200_centered_v2
+dataset_stats: pusht/data/pusht_expert_train  # subdir prefix req'd: swm resolves ${cache_dir}/datasets/${stats}.h5
+num_eval: 50
+# eval_budget: null → auto-derive from dataset ep_len when `full: true`.
+# Set to an int (here or at the cell level) to cap/override the budget.
+eval_budget: null
+# PushT2D control_hz default in legacy is 10 Hz → 0.1s. SAIL scales this.
+control_timestep_s: 0.1
+
+metrics:
+  _target_: policy._metrics.PushTCoverageMetrics
+  n_envs: ${task.num_eval}
+  eval_budget: ${eval.eval_budget}   # ← picks up cell override; null if none
+  control_timestep_s: ${task.control_timestep_s}

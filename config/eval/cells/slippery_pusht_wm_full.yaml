@@ -1,0 +1,75 @@
+# @package _global_
+# In-process SLIPPERY-PushT wm_full via the v2 unified eval loop.
+# = pusht_wm_full + slippery bits + base WM uniform. Terminal-cost MPC (CEM in
+# WM, no reference tracking). base WM is v1-corpus -> v1 scaler stats + v1
+# action_clamp are MANDATORY (CEM is active here, unlike dtg_invdyn/dp).
+defaults:
+  - /task: pusht
+  - /policy: wm_full
+  - /solver: mpc_pusht
+  - _self_
+
+seed: 42
+cache_dir: ${oc.env:STABLEWM_HOME}
+
+output:
+  run_name: slippery_pusht_wm_full_v2_inproc_n50
+  findings_dir: findings/260521_baseline_setup
+  logdir_subkey: slippery_pusht_wm_full_v2_inproc
+
+task:
+  policy_config_group: slippery_pusht/lewm     # base WM (v1)
+  eval_budget: 594
+  control_timestep_s: 0.1
+
+policy:
+  legacy_policy_cls: stable_worldmodel.policy.WorldModelPolicy
+
+# Terminal-cost MPC (no reference tracking) + v1 WM CEM corrections.
+solver:
+  inner_solver:
+    action_clamp: [5.0528, 5.2017]   # v1 corpus scaler clamp (base WM)
+  cost_weights:
+    tracking: 0.0
+    terminal: 1.0
+
+debug:
+  decoder_checkpoint: null
+
+plan_config:
+  horizon: 5
+  receding_horizon: 5
+  action_block: 5
+  use_past_context: true
+
+world:
+  env_name: ${task.env_name}
+  num_envs: ${eval.num_eval}
+  max_episode_steps: ${task.eval_budget}
+  history_size: 3
+  frame_skip: 1
+  resolution: 224
+  damping: 0.35
+
+dataset:
+  stats: slippery_pusht/data/slippery_pusht_wm_corpus   # v1 corpus (base WM dist)
+  keys_to_cache:
+    - action
+    - proprio
+    - state
+
+full: true
+
+eval:
+  num_eval: ${task.num_eval}
+  eval_budget: ${task.eval_budget}
+  dataset_name: slippery_pusht/data/expert_slow_050_n200_d035
+  goal_offset_steps: 25
+  debug_video: false
+  start_offset: 5
+  img_size: 224
+  callables:
+    - method: _set_state
+      args:
+        state:
+          value: state

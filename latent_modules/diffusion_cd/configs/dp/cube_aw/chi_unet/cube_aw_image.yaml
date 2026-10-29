@@ -1,0 +1,67 @@
+pipeline_name: dp_cube_aw_image
+mode: train
+
+# ---- data ----
+# Override via Hydra: ++dataset_path=/path/to/cube_multiview_diffusion_c0.3_postpad_fullscale.h5
+dataset_path: ${oc.env:STABLEWM_HOME}/datasets/cube_multiview_diffusion_c0.3_postpad_fullscale.h5
+num_workers: 8
+
+# ---- shape_meta (storage layout) ----
+# Stored at 96x96 (matches our existing pipeline resolution for ablation parity).
+# CropRandomizer below trains on random crop 84, eval centers 84.
+shape_meta:
+  action: {shape: [5]}
+  obs:
+    agentview_image: {shape: [3, 96, 96], type: rgb}
+    wrist_image:     {shape: [3, 96, 96], type: rgb}
+
+action_dim: 5
+obs_steps: 2
+action_steps: 8
+horizon: 16
+
+# ---- dataset (Hydra dispatch — task-specific class) ----
+dataset:
+  _target_: latent_diffusion_cd.dataset.cube_aw_image_dataset.CubeAWImageDataset
+  dataset_dir: ${dataset_path}
+  shape_meta: ${shape_meta}
+  n_obs_steps: ${obs_steps}
+  horizon: ${horizon}
+
+# ---- obs_encoder (MultiImageObsCondition) ----
+rgb_model: resnet18
+resize_shape: null
+crop_shape: [84, 84]
+random_crop: true
+use_group_norm: true
+use_seq: true
+
+# ---- diffusion ----
+nn: chi_unet
+diffusion: ddpm
+sample_steps: 50
+temperature: 1.0
+
+# ---- train ----
+device: cuda:0
+seed: 42
+gradient_steps: 100000
+batch_size: 64
+lr: 1.0e-4
+
+# ---- logging ----
+log_freq: 200
+save_freq: 10000
+exp_name: cube_aw_${nn}_${diffusion}_step${sample_steps}_h${horizon}_${now:%Y%m%d_%H%M%S}
+save_path: ${oc.env:STABLEWM_HOME}/train/dp
+project: CleanDiffuser
+group: dp_cube_aw_image
+wandb_mode: offline
+work_dir: ${save_path}/${pipeline_name}/${exp_name}/${seed}
+
+# ---- hydra ----
+hydra:
+  run:
+    dir: ${work_dir}
+  job:
+    chdir: false

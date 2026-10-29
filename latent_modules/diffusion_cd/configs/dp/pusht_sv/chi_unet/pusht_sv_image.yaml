@@ -1,0 +1,67 @@
+pipeline_name: dp_pusht_sv_image
+mode: train
+
+# ---- data ----
+# Override via Hydra: ++dataset_path=/path/to/pusht_*.h5
+dataset_path: ${oc.env:STABLEWM_HOME}/datasets/pusht_expert_train.h5
+num_workers: 8
+
+# ---- shape_meta (storage layout) ----
+# PushT raw H5 is 224x224 single-view; we resize to 96 on cache load
+# (mirrors cube cd_dp recipe). CropRandomizer trains on random crop 84,
+# eval centers 84.
+shape_meta:
+  action: {shape: [2]}
+  obs:
+    image: {shape: [3, 96, 96], type: rgb}    # single agent view (H5 key: `pixels`)
+
+action_dim: 2
+obs_steps: 2
+action_steps: 8
+horizon: 16
+
+# ---- dataset (Hydra dispatch — task-specific class) ----
+dataset:
+  _target_: latent_diffusion_cd.dataset.pusht_sv_image_dataset.PushTSVImageDataset
+  dataset_dir: ${dataset_path}
+  shape_meta: ${shape_meta}
+  n_obs_steps: ${obs_steps}
+  horizon: ${horizon}
+
+# ---- obs_encoder (MultiImageObsCondition) ----
+rgb_model: resnet18
+resize_shape: null
+crop_shape: [84, 84]
+random_crop: true
+use_group_norm: true
+use_seq: true
+
+# ---- diffusion ----
+nn: chi_unet
+diffusion: ddpm
+sample_steps: 50
+temperature: 1.0
+
+# ---- train ----
+device: cuda:0
+seed: 42
+gradient_steps: 100000
+batch_size: 64
+lr: 1.0e-4
+
+# ---- logging ----
+log_freq: 200
+save_freq: 10000
+exp_name: pusht_sv_${nn}_${diffusion}_step${sample_steps}_h${horizon}_${now:%Y%m%d_%H%M%S}
+save_path: ${oc.env:STABLEWM_HOME}/train/dp
+project: CleanDiffuser
+group: dp_pusht_sv_image
+wandb_mode: offline
+work_dir: ${save_path}/${pipeline_name}/${exp_name}/${seed}
+
+# ---- hydra ----
+hydra:
+  run:
+    dir: ${work_dir}
+  job:
+    chdir: false

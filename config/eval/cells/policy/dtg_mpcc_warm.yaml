@@ -1,0 +1,4 @@
+# @package policy
+# DTG-MPCC whose first-replan history ring is seeded from real frames instead of the
+# duplicated current encoding. See policy/dtg_mpcc_warm.py for the defect and the fix.
+_target_: policy.dtg_mpcc_warm.DTGMPCCWarmPolicy

@@ -1,0 +1,35 @@
+# Collect 0.5x slow slippery PushT expert demos using OUR locally-trained slippery DP.
+# Output style matches ${oc.env:STABLEWM_HOME}/pusht/data/expert_slow_050_n200.h5
+# (24-key raw swm schema, action_repr='relative', action_scale=100.0).
+
+defaults:
+  - _self_
+
+damping: 0.35
+
+world:
+  num_envs: 25                    # batched DP inference; >1 ok because per-env history deques
+  image_shape: [224, 224]         # collection resolution (DP downsamples to 96 internally)
+  history_size: 1
+  frame_skip: 1
+  max_episode_steps: 500          # 0.5x slowdown ~2x ep length; 500 fits comfortably
+  verbose: 0
+  render_mode: rgb_array
+
+slowdown_factor: 0.5              # rel = (abs_target - agent_pos)/100 * slowdown_factor
+num_traj: 200                     # final tight-success eps to keep
+n_request: 800                    # over-request budget (DP SR ~0.77 × tight rate)
+seed: 3072
+
+# Where record_dataset writes the RAW {dataset_name}_RAW.h5 ({cache_dir}/datasets/...)
+cache_dir: ${oc.env:STABLEWM_HOME}/slippery_pusht/data
+# Where the post-filter FINAL .h5 lands
+final_out_dir: ${oc.env:STABLEWM_HOME}/slippery_pusht/data
+
+# Our slippery-trained DP (best ckpt from dp_d035_S100_Ta8_Tp16)
+dp_ckpt_path: ${oc.env:STABLEWM_HOME}/slippery_pusht/policy/dp_d035_S100_Ta8_Tp16/checkpoints/epoch=0175-test_mean_score=0.765.ckpt
+n_obs_steps: 2
+n_action_steps: 8
+device: cuda:0
+
+dataset_name: expert_slow_050_n200_d035

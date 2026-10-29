@@ -1,0 +1,89 @@
+# @package _global_
+# PushT CleanDiffuser pixel-DP baseline (94% block-only),
+# not the official DP-repo policy. Mirrors cube_dp (policy.dp
+# = CleanDiffuserDPPolicy via eval_cleandiffuser_dp.py) with single-view pusht
+# arch (action_dim=2, n_views=1, image_size=96) + the dp_action_v2 checkpoint.
+# Arch values verified from submit_eval_cleandiffuser_dp_pusht_sv.sh; budget/
+# full/history from the baseline meta (eval_budget=489, full=0, history_size=3).
+defaults:
+  - /task: pusht
+  - /policy: dp
+  - _self_
+
+seed: 42
+cache_dir: ${oc.env:STABLEWM_HOME}
+
+output:
+  run_name: pusht_dp_cd_v2_inproc_n50_verify
+  findings_dir: findings/260521_baseline_setup
+  logdir_subkey: pusht_dp_cd_v2_inproc
+
+task:
+  # policy.dp reads task.policy_config_group (world WM setup); pusht task base
+  # lacks it (only cube task has one) → set my pusht WM here.
+  policy_config_group: pusht_wm/lewm
+  eval_budget: 489            # my baseline pusht DP budget (meta eval_budget=489)
+  control_timestep_s: 0.1
+
+diffusion:
+  # my CleanDiffuser pusht pixel-DP (dp_pusht_sv_image / dp_action_v2)
+  ckpt_path: ${cache_dir}/pusht/diffusion_cd_v2/dp_pusht_sv_image/dp_action_v2/42/models/model_final.pt
+  train_h5_path: ${cache_dir}/datasets/expert_slow_025_n200_centered_v2.h5
+  nn: chi_unet
+  horizon: 16
+  obs_steps: 2
+  action_steps: 8
+  action_dim: 2
+  image_size: 96
+  n_views: 1
+  crop_shape: [84, 84]
+  sample_steps: 50
+  use_group_norm: true
+  use_seq: true
+
+debug:
+  decoder_checkpoint: null
+
+plan_config:
+  horizon: 5
+  receding_horizon: 15        # matched 15-env-step replan (rh=15 × ab=1)
+  action_block: 1
+  use_past_context: true
+
+solver:
+  inner_solver:
+    physical_dim: 2           # pusht 2D action (MPCC-mode trigger off for DP)
+    n_steps: 30
+
+world:
+  env_name: ${task.env_name}
+  num_envs: ${eval.num_eval}
+  max_episode_steps: ${task.eval_budget}
+  history_size: 3             # baseline meta history_size=3
+  frame_skip: 1
+  resolution: 96              # swm/PushT-v1 image kwarg
+
+dataset:
+  stats: ${task.dataset_stats}
+  keys_to_cache:
+    - action
+    - state
+
+full: true                    # baseline ran full=true (budget grew to ep-len 489); the
+                              # meta `full:0` was a nested field, not the eval full flag
+
+eval:
+  num_eval: ${task.num_eval}
+  eval_budget: ${task.eval_budget}
+  dataset_name: ${task.dataset_name}
+  goal_offset_steps: 25
+  debug_video: false
+  img_size: 96
+  start_offset: 5
+  # Deterministic init from dataset; goal forced to PUSHT_FIXED_GOAL by
+  # force_pusht_fixed_goal() in eval_unified.py. block-only success via patch.
+  callables:
+    - method: _set_state
+      args:
+        state:
+          value: state

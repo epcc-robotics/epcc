@@ -1,0 +1,45 @@
+# @package _global_
+# Slippery-PushT DTG-MPCC with the first-replan history ring seeded from real frames
+# (policy/dtg_mpcc_warm.py — same fix as cube_dtg_mpcc_warm.yaml), for the H84/K6/stride-1
+# generators. Thin child of slippery_pusht_dtg_mpcc: inherits the champion solver recipe
+# (rh=1, var 0.2, c 0.55, damping 0.35) and changes ONLY what the ring fix + stride-1 need.
+#
+# 🔴 The parent yaml does NOT reproduce the Table I slippery row by itself: it ships
+#    nu_clamp [0,1.2], action_smooth 3, action_clamp [5.0528,5.2017] and the pre-park
+#    generator. The published row (logs_epcc5/rfx_slipM1_nu15asm1) overrode
+#    task.policy_config_group=agg_slipM1 task.dataset_stats=agg_slippery_main1
+#    action_clamp [5.4662,5.5674] nu_clamp.1=1.5 cost_weights.action_smooth=1.0 — all of that
+#    stays on the command line (see logs_smoke/hydra/rfx_slipM1_nu15asm1_12044354/.hydra/
+#    overrides.yaml) so this file also serves M2 (agg_slipM2 / agg_slippery_main2 /
+#    [5.1198, 5.2199]) and the Table II guards. Never write dataset.stats as a literal here.
+#
+# 🔴 solver.reference.stride: 1 is a SENTINEL (policy/dtg_mpcc.py:78-82 -> diff.stride).
+#    The parent pins 5, which would silently track an H84/s1 generator 5x too coarse.
+#
+# 🔴 warm_ring.latent_h5 = the generator's own park cache, encoded with the frozen slippery
+#    base encoder (checkpoints/slippery_pusht/lewm/lewm_object.ckpt) that agg_slipM1/M2 and
+#    every slippery control WM freeze. Episodes are the eval episodes
+#    (slippery_pusht/data/expert_slow_050_n200_d035) with a 100-frame tail appended.
+#    ~30 other 192-d caches in the same directory pass the width check — copy, never type.
+defaults:
+  - slippery_pusht_dtg_mpcc
+  - override /policy: dtg_mpcc_warm
+  - _self_
+
+diffusion:
+  # MUST be overridden on the command line with the h84 stride-1 generator (selected_val).
+  ckpt_path: ${cache_dir}/PLACEHOLDER_SET_diffusion.ckpt_path_ON_THE_COMMAND_LINE.pt
+
+solver:
+  reference:
+    stride: 1
+
+world:
+  escapable_block: true      # walls-off, as every published pushT/slippery row
+
+eval:
+  save_traj: true            # rollout_traj.npz is what park_metrics scores
+
+warm_ring:
+  enabled: true
+  latent_h5: ${cache_dir}/slippery_pusht/data/latent/expert_slow_050_n200_d035_park_latents_lewm_base.h5

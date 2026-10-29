@@ -1,0 +1,2 @@
+# @package policy
+_target_: policy.dtg_mpcc.DTGMPCCPolicy

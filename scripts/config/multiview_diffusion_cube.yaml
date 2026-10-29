@@ -1,0 +1,42 @@
+defaults:
+  - _self_
+
+cache_dir: "${oc.env:STABLEWM_HOME}/cube/collect"
+
+world:
+  num_envs: 1
+  max_episode_steps: 1000   # generous cap; variable-length ep terminates well before this
+  image_shape: [224, 224]
+
+seed: 3072
+num_traj: 1500    # ~1500 success eps × 136 frames ≈ 204K frames (matches original diffusion cube scale)
+
+# Diffusion expert: slow + clean (no noise)
+slowdown_factor: 0.3
+action_noise: 0.0
+
+mode: collect    # 'validate' for small test + videos, 'collect' for full run
+
+# Random init within left-half rectangle; fixed goal at (0.425, 0.15, 0.02).
+init_bounds:
+  x_low:  0.30
+  x_high: 0.55
+  y_low: -0.30
+  y_high:  0.00
+goal_xyz: [0.425, 0.15, 0.02]
+
+# Per-episode random arm init. Fork's initialize_arm reads
+# variation_space['agent']['ee_start_position'].value (a fixed point); we
+# override per-episode via env.reset(options={'variation_values': {...}}).
+randomize_arm_init: true
+
+# DEPRECATED: variable-length episodes now used. After success, scripted
+# post_success_action runs for POST_SUCCESS_FRAMES (=100) steps then ends.
+# Setting target_ep_len here will be ignored with a warning.
+# target_ep_len: null
+
+# Validation
+n_val_episodes: 5
+
+# Wrist cam
+wrist_cam_img_size: 224

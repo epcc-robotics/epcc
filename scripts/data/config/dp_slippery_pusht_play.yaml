@@ -1,0 +1,35 @@
+# Collect 1xDP_slippery_pusht_WM data using sticky DP on slippery PushT env.
+# Override on CLI: world.num_envs=25 num_traj=2000 num_shards=10 ...
+
+damping: 0.35               # null -> plain PushT physics (env default)
+
+# Pace knob (1.0 = bit-exact v1 play pipeline in BOTH modes).
+# D-grid values: pushT {0.5, 1.5, 2.5}.
+slowdown_factor: 1.0
+# displacement: clip(rel,±1)*c — c>1 SATURATES (~1.25x at c=2.5, measured)
+# stride:       consume the DP abs-target queue at rate c — true time-rescale
+pace_mode: displacement
+
+world:
+  num_envs: 4               # smoke default; full run overrides to 25
+  image_shape: [224, 224]   # MATCH pusht_expert_train.h5 — WM corpus target resolution.
+                            # DP inference internally downsamples to dp_input_size (96×96).
+  history_size: 1
+  frame_skip: 1
+  max_episode_steps: 300
+  verbose: 0
+  render_mode: rgb_array
+
+dp_ckpt_path: ${oc.env:STABLEWM_HOME}/pusht/policy/dp_S100_Ta8_Tp16/checkpoints/epoch=0100-test_mean_score=0.902.ckpt
+n_obs_steps: 2
+n_action_steps: 8
+device: cuda:0
+
+dataset_name: 1xDP_slippery_pusht_WM
+cache_dir: ${oc.env:STABLEWM_HOME}/slippery_pusht/data
+num_traj: 8                 # smoke default; full run overrides to 2000
+num_shards: 2               # smoke default; full run overrides to 10
+shard_offset: 0             # start naming at shard_${shard_offset}.h5 → for resume / batch-2 collection
+seed: 42                    # change to 43+ when extending an existing collection to get distinct rollouts
+
+options: null

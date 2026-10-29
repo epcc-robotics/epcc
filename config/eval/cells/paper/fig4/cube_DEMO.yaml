@@ -1,0 +1,15 @@
+# @package _global_
+# Fig. 4, Cube point DEMO.
+# Published run: findings/260907_final_dtg_s1_warm/runs/fig_expert_play/f4_cube_DEMO_s1warm (Hydra record logs_smoke/hydra/f4_cube_DEMO_s1warm_12937657).
+# Base recipe: config/eval/cells/cube_dtg_mpcc_warm.yaml; the keys below are that run's command-line overrides,
+# machine paths rewritten to ${cache_dir} (= $STABLEWM_HOME). Generated 2026-10-27; do not edit by hand.
+defaults:
+  - ../../cube_dtg_mpcc_warm
+  - _self_
+eval: {save_traj: true}
+diffusion: {ckpt_path: '${cache_dir}/checkpoints/dtg/cube_s1H84_lv30/models/model_34000.pt'}
+solver:
+  reference: {stride: 1}
+  inner_solver:
+    action_clamp: [12.759, 7.2737, 5.499, 7.9302, 4.4913]
+task: {policy_config_group: wm_demoonly/cube_demo, dataset_stats: cube_multiview_diffusion_c0.3_postpad_fullscale}

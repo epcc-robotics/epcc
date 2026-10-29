@@ -1,0 +1,123 @@
+# @package _global_
+# Proper SAIL on cube — reached-pose 6-D DP + live delta tracking + adaptive dt.
+#
+# FAIR BUDGET RULE: the sim-time horizon must be constant across k, i.e.
+#   eval_budget(k) = BASE * k,  BASE = horizon / base_control_timestep
+#
+# 🔴 This cell used to violate it. `eval.eval_budget` was hardcoded to 500 and
+# never referenced ${task.eval_budget}, so the launcher's ++task.eval_budget
+# override was inert on cube (the PushT cells reference it and were fine).
+# Measured on the archived 2026-08-02 sweep: the horizon SHRANK with k —
+#   k=1.0 -> 25.00 s     k=2.0 -> 12.50 s     k=3.0 -> 8.33 s
+# while plain held 48.90 s at every k. Worse, every other cube baseline
+# (ours / DP / SuP) runs 314 steps x 0.05 = 15.70 s, so cube SAIL at k=1.0 had
+# a 59% LARGER horizon than the peers it is tabled against.
+#
+# The archived numbers survive the defect — all successes finished with
+# headroom and the failures are genuine, not truncations (k=3.0's three all
+# have grasped=False and final_dist 0.22-0.30 m vs a success median of 0.012).
+# But the fair-budget claim did not hold, so: BASE = 314, matching the cube
+# horizon every other cell uses. (BASE=200 would be wrong the other way: it
+# gives k=1.0 only 10.0 s while that cell's latest success took 11.80 s.)
+#
+# world.max_episode_steps needs no attention — eval_mpc_multiview.py forces it
+# to 2 * eval_budget regardless of what any config says.
+defaults:
+  - /task: cube
+  - /policy: sail_reached
+  - _self_
+
+seed: 42
+cache_dir: ${oc.env:STABLEWM_HOME}
+
+output:
+  run_name: cube_sail_reached_k${policy.fast_dt_factor}_n${task.num_eval}
+  findings_dir: findings/260521_baseline_setup
+  logdir_subkey: logs_sail_reached
+
+# Nominal env rate — the policy wrapper applies fast/slow dt itself at reset;
+# TTC truth comes from per-step actual control_timestep capture.
+task:
+  control_timestep_s: 0.05
+
+diffusion:
+  # Reached-pose + precision 6-D ckpt (Stage 2 training output).
+  ckpt_path: ${cache_dir}/cube/sail/dp_reached/models/model_final.pt
+  train_h5_path: ${cache_dir}/cube/sail/awe/cube_reached_precision_c03.h5
+  nn: chi_unet
+  horizon: 16
+  obs_steps: 2
+  action_steps: 8
+  action_dim: 6
+  image_size: 96
+  n_views: 2
+  crop_shape: [84, 84]
+  sample_steps: 50
+  use_group_norm: true
+  use_seq: true
+
+debug:
+  decoder_checkpoint: null
+
+plan_config:
+  horizon: 5
+  receding_horizon: 15
+  action_block: 1
+  use_past_context: true
+
+solver:
+  inner_solver:
+    physical_dim: 5
+    n_steps: 30
+
+world:
+  env_name: ${task.env_name}
+  num_envs: ${eval.num_eval}
+  max_episode_steps: 500      # ceil(200 × fast_dt_factor); override per k!
+  history_size: 3
+  frame_skip: 5
+  env_type: single
+  ob_type: states
+  multiview: false
+  width: 224
+  height: 224
+  visualize_info: false
+  terminate_at_goal: true
+
+dataset:
+  stats: ${task.dataset_stats}
+  keys_to_cache:
+    - action
+
+full: true
+
+eval:
+  num_eval: ${task.num_eval}
+  eval_budget: ${task.eval_budget}   # launcher sets task.eval_budget = ceil(314*k)
+  dataset_name: ${task.dataset_name}
+  goal_offset_steps: ${task.goal_offset_steps}
+  debug_video: false
+  start_offset: 5
+  # Needed for the demo-relative speed-up: rollout_traj.npz carries
+  # `episode_idx` and `start_step`, which is the only way to pair each rollout
+  # with the demo episode it was initialised from. Without it the sweep can only
+  # report SR and raw TTC, not speed-up. The PushT SAIL cells set this; copying
+  # this cell from baseline_corl_v2 dropped it.
+  save_traj: true
+  img_size: 224
+  callables:
+    - method: set_state
+      args:
+        qpos:
+          value: qpos
+        qvel:
+          value: qvel
+    - method: set_target_pos
+      args:
+        cube_id:
+          value: 0
+          in_dataset: false
+        target_pos:
+          value: goal_privileged_block_0_pos
+        target_quat:
+          value: goal_privileged_block_0_quat

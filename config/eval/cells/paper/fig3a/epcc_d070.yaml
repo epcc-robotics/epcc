@@ -1,0 +1,8 @@
+# @package _global_
+# Fig. 3a, EPCC at damping d070.
+# Published run: findings/260907_final_dtg_s1_warm/runs/fig_friction/fricB_s1warm_d070 (Hydra record logs_smoke/hydra/fricB_s1warm_d070_12972706).
+# Base recipe: config/eval/cells/friction/slippery_pusht_dtg_mpcc_fricd070_s1warm.yaml; the keys below are that run's command-line overrides,
+# machine paths rewritten to ${cache_dir} (= $STABLEWM_HOME). Generated 2026-10-27; do not edit by hand.
+defaults:
+  - ../../friction/slippery_pusht_dtg_mpcc_fricd070_s1warm
+  - _self_

@@ -1,0 +1,12 @@
+# @package _global_
+# Table I, SKIP baseline.
+# Published run: findings/260521_baseline_setup/logs_sh_repro_wallsoff/pusht_skip_wallsoff (Hydra record logs_smoke/hydra/pusht_skip_wallsoff_11606745).
+# Base recipe: config/eval/cells/pusht_skip.yaml; the keys below are that run's command-line overrides,
+# machine paths rewritten to ${cache_dir} (= $STABLEWM_HOME). Generated 2026-10-27; do not edit by hand.
+defaults:
+  - ../../pusht_skip
+  - _self_
+world: {escapable_block: true, max_episode_steps: 978}
+eval: {save_traj: true}
+diffusion: {ckpt_path: '${cache_dir}/checkpoints/skip/pusht_h16/models/model_final.pt',
+  train_h5_path: '${cache_dir}/datasets/expert_slow_025_n200_centered_v2_park.h5'}

@@ -1,0 +1,12 @@
+# @package _global_
+# Table I, SAIL baseline (k=2.0; the paper row uses the best-TP k per task).
+# Published run: findings/260521_baseline_setup/logs_sail_reached/cube_sail_awe_per_env_k2.0_n50_r1 (Hydra record logs_smoke/hydra/cube_sail_awe_per_env_k2.0_n50_r1_11678205).
+# Base recipe: config/eval/cells/cube_sail_reached.yaml; the keys below are that run's command-line overrides,
+# machine paths rewritten to ${cache_dir} (= $STABLEWM_HOME). Generated 2026-10-27; do not edit by hand.
+defaults:
+  - ../../cube_sail_reached
+  - _self_
+policy: {fast_dt_factor: 2.0, slow_dt_factor: 1.0, use_precision: true, precision_mode: per_env}
+task: {eval_budget: 628, num_eval: 50}
+world: {max_episode_steps: 1256}
+seed: 42

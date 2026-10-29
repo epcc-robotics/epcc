@@ -1,0 +1,63 @@
+pipeline_name: dp_pusht_sv_image_skip
+mode: train
+
+# SkiP-relabeled PushT SV DP: same arch as pusht_sv_image, but the dataset
+# yields ABSOLUTE agent poses (2-d) with SkiP MSK relabel (skip -> next-key
+# leap). MSK runs on the pusher `pos_agent` path (no gripper anchor).
+#
+# Default = PLAIN pushT expert_slow_025. For slippery, override:
+#   ++dataset_path=${oc.env:STABLEWM_HOME}/slippery_pusht/data/expert_slow_050_n200_d035.h5
+dataset_path: ${oc.env:STABLEWM_HOME}/datasets/expert_slow_025_n200_centered_v2.h5
+num_workers: 8
+
+shape_meta:
+  action: {shape: [2]}
+  obs:
+    image: {shape: [3, 96, 96], type: rgb}    # single agent view (H5 key: `pixels`)
+
+action_dim: 2
+obs_steps: 2
+action_steps: 8
+horizon: 16
+
+dataset:
+  _target_: latent_diffusion_cd.dataset.pusht_sv_skip_image_dataset.PushTSVSkipImageDataset
+  dataset_dir: ${dataset_path}
+  shape_meta: ${shape_meta}
+  n_obs_steps: ${obs_steps}
+  horizon: ${horizon}
+  skip_window: 16
+  skip_quantile: 0.75
+
+rgb_model: resnet18
+resize_shape: null
+crop_shape: [84, 84]
+random_crop: true
+use_group_norm: true
+use_seq: true
+
+nn: chi_unet
+diffusion: ddpm
+sample_steps: 50
+temperature: 1.0
+
+device: cuda:0
+seed: 42
+gradient_steps: 100000
+batch_size: 64
+lr: 1.0e-4
+
+log_freq: 200
+save_freq: 10000
+exp_name: pusht_sv_skip_${nn}_${diffusion}_step${sample_steps}_h${horizon}_${now:%Y%m%d_%H%M%S}
+save_path: ${oc.env:STABLEWM_HOME}/train/dp
+project: CleanDiffuser
+group: dp_pusht_sv_image_skip
+wandb_mode: offline
+work_dir: ${save_path}/${pipeline_name}/${exp_name}/${seed}
+
+hydra:
+  run:
+    dir: ${work_dir}
+  job:
+    chdir: false

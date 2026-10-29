@@ -1,0 +1,44 @@
+# @package _global_
+# EXPERIMENT 6 (plain pushT cell) — WM trained on DEMOS ONLY.
+#
+#   champion:  plain WM on pusht_expert_train (play, 2.34M frames) -> 100%
+#              (logs_sh_repro_park/pusht_dtg_mpcc_park, latched=final=held)
+#   this cell: plain WM on demos (park) only, 82,642 frames
+#
+# See slippery_pusht_dtg_mpcc_demoonly.yaml for why policy_config_group /
+# dataset.stats / action_clamp must all three change together.
+#
+# clamp: champion [4.8344, 4.8700] under std_play [0.20847, 0.20675] reaches
+# +/-1.0078 half-width; preserved here as C = C_champ*std_champ/std_demo with
+# std_demo [0.06260, 0.06058]. Means are <0.8% of the half-width on both dims.
+#
+# NOTE the plain play set contains |a| up to 2.04 while the champion clamp only
+# reaches 1.0 — the champion already searches a smaller box than its own data.
+# The plain DEMO set never exceeds |a| = 1.0 at all.
+#
+defaults:
+  - pusht_dtg_mpcc
+  - _self_
+
+output:
+  run_name: pusht_dtg_mpcc_demoonly_n50
+  logdir_subkey: pusht_dtg_mpcc_demoonly
+
+task:
+  policy_config_group: wm_demoonly/plain_park
+
+dataset:
+  stats: expert_slow_025_n200_centered_v2_park
+
+solver:
+  inner_solver:
+    action_clamp: [16.0998, 16.6202]
+
+diffusion:
+  ckpt_path: ${cache_dir}/checkpoints/dtg/pusht_s1H84_lv30/models/model_100000.pt
+
+world:
+  max_episode_steps: 870
+
+eval:
+  save_traj: true

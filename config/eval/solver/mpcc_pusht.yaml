@@ -1,0 +1,16 @@
+# SV PushT MPCC controller — extends generic mpcc.yaml with task-specific values.
+# Used by:
+#   - eval_mpcc.py        (GT-MPCC, dataset refs)
+#   - eval_diffusion_mpcc.py (Diffusion-MPCC, refs from diffusion planner)
+defaults:
+  - mpcc
+  - _self_
+
+inner_solver:
+  batch_size: ${eval.num_eval}        # batch all envs in one CEM solve
+  physical_dim: 10                    # PushT 2D action × action_block 5 (= MPCC mode trigger)
+  action_clamp: [4.8344, 4.8700]      # per env-action-dim; from pusht_expert_train scaler
+  env_clip_range: [-1.0, 1.0]         # env action_space bounds
+
+reference:
+  c: 0.5                              # matches pusht_dp_c0.5_success dataset slowdown

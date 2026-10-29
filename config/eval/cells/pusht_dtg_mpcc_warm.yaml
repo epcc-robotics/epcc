@@ -1,0 +1,49 @@
+# @package _global_
+# Plain-PushT DTG-MPCC with the first-replan history ring seeded from real frames
+# (policy/dtg_mpcc_warm.py — same fix as cube_dtg_mpcc_warm.yaml), for the H84/K6/stride-1
+# generators. Thin child of pusht_dtg_mpcc: it inherits the whole solver/WM/plan recipe
+# and changes ONLY what the ring fix + the stride-1 generator need.
+#
+# 🔴 The Table I identity of the EPCC row (agg_plainM2 / agg_plain_main2 / action_clamp
+#    [4.8195, 4.8568]) is NOT baked in — it comes on the command line exactly as in
+#    logs_smoke/hydra/fix_plainM2_current_11965002/.hydra/overrides.yaml, so this file stays
+#    usable for M1 (agg_plainM1 / agg_plain_main1 / [4.8898, 4.9027]) and for the Table II
+#    guards. Never write dataset.stats as a literal here: it would sever the
+#    ${task.dataset_stats} interpolation and make ++task.dataset_stats a silent no-op.
+#
+# 🔴 solver.reference.stride: 1 is a SENTINEL — policy/dtg_mpcc.py:78-82 replaces None/1 with
+#    diff.stride, so the reference spacing always follows the generator checkpoint. The parent
+#    pins 5, which would NOT be corrected and would track an H84/s1 generator 5x too coarse.
+#
+# 🔴 warm_ring.latent_h5 must be a cache of the EVAL dataset's episodes in this cell's
+#    (frozen base-LeWM) encoder space: the seeder indexes lat[ep_offset[e] + start] by the
+#    eval episode id. The cache below is the eval dataset itself (expert_slow_025_n200_centered_v2,
+#    non-park) encoded in fp32 with checkpoints/pusht_wm/lewm_object.ckpt on 2026-09-07
+#    (parity job 12935481; see the .PROVENANCE.md next to it). It was chosen over the generator's
+#    own park cache because that one was computed in fp16 and differs from the fp32 eval encoder
+#    by up to 1.2e-2 per frame (3% of one frame's motion); with this cache all six ring frames
+#    are numerically the live encoder's — the cube condition (parity 0.0). Episode alignment
+#    between the two caches was verified exactly (200/200). Width check (192) cannot catch a
+#    slippery-encoder cache — copy, never type.
+defaults:
+  - pusht_dtg_mpcc
+  - override /policy: dtg_mpcc_warm
+  - _self_
+
+diffusion:
+  # MUST be overridden on the command line with the h84 stride-1 generator (selected_val).
+  ckpt_path: ${cache_dir}/PLACEHOLDER_SET_diffusion.ckpt_path_ON_THE_COMMAND_LINE.pt
+
+solver:
+  reference:
+    stride: 1
+
+world:
+  escapable_block: true      # walls-off, as every published pushT/slippery row
+
+eval:
+  save_traj: true            # rollout_traj.npz is what park_metrics scores
+
+warm_ring:
+  enabled: true
+  latent_h5: ${cache_dir}/pusht/latents/expert_slow_025_n200_centered_v2_latents_lewm_fp32.h5

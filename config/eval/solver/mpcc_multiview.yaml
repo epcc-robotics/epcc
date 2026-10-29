@@ -1,0 +1,62 @@
+# Multi-view MPCC solver — augments physical action with virtual velocity ν.
+# CEM samples ν alongside physical action; MPCCCostModel maps ν → arc-length
+# advance via nu_scale = action_block / (c · ref.N).
+#
+# ν semantics (Scenario B finalized 2026-04-29):
+#   ν=0.3 (=c) → expert pace
+#   ν=0.5     → midpoint (CEM init mode)
+#   ν=1.0     → natural pace (WM-trained ceiling, do not exceed)
+#
+# Reference granularity (frameskip=1) decoupled from MPCC tracking
+# granularity (action_block=5 baked into nu_scale) — interpolate(query_theta)
+# handles any combination natively.
+_target_: eval_mpcc_multiview.MultiviewMPCCSolver
+_recursive_: false
+
+inner_solver:
+  _target_: stable_worldmodel.solver.CEMSolver
+  batch_size: 25
+  num_samples: 300
+  var_scale: 1.0
+  n_steps: 30
+  topk: 30
+  device: "cuda"
+  seed: ${seed}
+
+  # Phys shaping (mirror cube AW MPC) — applied to candidates[..., :physical_dim]
+  action_clamp: [2.36, 1.57, 1.25, 1.64, 1.20]   # per env-action-dim
+  binary_gripper: false                            # set true for Bernoulli sampling (see cem.py _resample_gripper_binary)
+  env_clip_range: [-1.0, 1.0]
+  projection_mode: state                           # MPCC: state mode only
+  # Scaler injected at runtime via solver._inner_solver.set_action_scaler()
+  # (see eval_mpcc_multiview.py); tiles per-env-phys (5,) → flat_phys_dim (25,).
+
+  # MPCC additions (Scenario B: ν > 0 strict, slow allowed, natural cap at 1.0)
+  physical_dim: 25     # phys 5 dim × outer action_block 5; rest (1) is ν
+  nu_clamp: [0.0, 1.0] # ν > 0 enforced; ν ≤ 1.0 = natural pace cap
+  nu_init: 0.5         # cold-start batch_mean for ν (mode at midpoint)
+  nu_var_scale: 0.25   # narrow exploration; 99.7% of N(0.5, 0.25) ∈ [-0.25, 1.25]
+
+cost_weights:
+  contour: 0.10722
+  progress: 16.84342
+  action: 0.0058469
+  grip_smooth: 0.0   # Σ(Δa)² over horizon — 0 disables; gripper-only by default
+  grip_smooth_all_dims: false   # toggle: false = gripper-only (last phys dim); true = ALL phys dims (xyz + yaw + gripper)
+
+reference:
+  episode_idx: 0
+  dataset_name: ${eval.dataset_name}
+  c: 0.3              # expert speed ratio vs WM training (cube AW: 0.3)
+  frameskip: 1        # ref waypoint granularity (decoupled from action_block)
+  chunk_size: 64
+  cache_dir: ${cache_dir}
+  # Per-view weighting for projection distance. null → uniform across all dims.
+  # Cube AW: agent (192) + wrist (192) concat → view_dims=[192, 192].
+  # view_weights e.g. [1.0, 2.0] doubles wrist contribution.
+  view_dims: null
+  view_weights: null
+  # Interpolation backend for ref.interpolate(query_theta).
+  #   linear  (default): piecewise-linear, torch-native, GPU.
+  #   bspline: scipy CubicSpline (natural BC), CPU eval per call (~10% slower).
+  interpolation: linear

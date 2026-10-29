@@ -1,0 +1,116 @@
+[
+ {
+  "path": "slippery_pusht/data/slippery_pusht_wm_corpus_excised.h5",
+  "c": 1.0,
+  "name": "O_excised",
+  "damping": 0.35
+ },
+ {
+  "path": "bset/slippery/slippery_bset_k1_r0.h5",
+  "c": 0.5,
+  "name": "B_k1_r0",
+  "damping": 0.35
+ },
+ {
+  "path": "bset/slippery/slippery_bset_k1_r1.h5",
+  "c": 0.5,
+  "name": "B_k1_r1",
+  "damping": 0.35
+ },
+ {
+  "path": "bset/slippery/slippery_bset_k1_r2.h5",
+  "c": 0.5,
+  "name": "B_k1_r2",
+  "damping": 0.35
+ },
+ {
+  "path": "bset/slippery/slippery_bset_k2_r0.h5",
+  "c": 1.0,
+  "name": "B_k2_r0",
+  "damping": 0.35
+ },
+ {
+  "path": "bset/slippery/slippery_bset_k2_r1.h5",
+  "c": 1.0,
+  "name": "B_k2_r1",
+  "damping": 0.35
+ },
+ {
+  "path": "bset/slippery/slippery_bset_k2_r2.h5",
+  "c": 1.0,
+  "name": "B_k2_r2",
+  "damping": 0.35
+ },
+ {
+  "path": "bset/slippery/slippery_bset_k3_r0.h5",
+  "c": 1.5,
+  "name": "B_k3_r0",
+  "damping": 0.35
+ },
+ {
+  "path": "bset/slippery/slippery_bset_k3_r1.h5",
+  "c": 1.5,
+  "name": "B_k3_r1",
+  "damping": 0.35
+ },
+ {
+  "path": "bset/slippery/slippery_bset_k3_r2.h5",
+  "c": 1.5,
+  "name": "B_k3_r2",
+  "damping": 0.35
+ },
+ {
+  "path": "bset/slippery/slippery_bset_k4_r0.h5",
+  "c": 2.0,
+  "name": "B_k4_r0",
+  "damping": 0.35
+ },
+ {
+  "path": "bset/slippery/slippery_bset_k4_r1.h5",
+  "c": 2.0,
+  "name": "B_k4_r1",
+  "damping": 0.35
+ },
+ {
+  "path": "bset/slippery/slippery_bset_k4_r2.h5",
+  "c": 2.0,
+  "name": "B_k4_r2",
+  "damping": 0.35
+ },
+ {
+  "path": "bset/slippery/slippery_bset_k5_r0.h5",
+  "c": 2.5,
+  "name": "B_k5_r0",
+  "damping": 0.35
+ },
+ {
+  "path": "bset/slippery/slippery_bset_k5_r1.h5",
+  "c": 2.5,
+  "name": "B_k5_r1",
+  "damping": 0.35
+ },
+ {
+  "path": "bset/slippery/slippery_bset_k5_r2.h5",
+  "c": 2.5,
+  "name": "B_k5_r2",
+  "damping": 0.35
+ },
+ {
+  "path": "dgrid/slippery/D_c0.5_final.h5",
+  "c": 0.5,
+  "name": "D_c0.5",
+  "damping": 0.35
+ },
+ {
+  "path": "dgrid/slippery/D_c1.5_final.h5",
+  "c": 1.5,
+  "name": "D_c1.5",
+  "damping": 0.35
+ },
+ {
+  "path": "dgrid/slippery/D_c2.5_final.h5",
+  "c": 2.5,
+  "name": "D_c2.5",
+  "damping": 0.35
+ }
+]

@@ -1,0 +1,26 @@
+diff --git a/waypoint_extraction/traj_reconstruction.py b/waypoint_extraction/traj_reconstruction.py
+index 03b3392..805c243 100644
+--- a/waypoint_extraction/traj_reconstruction.py
++++ b/waypoint_extraction/traj_reconstruction.py
+@@ -16,8 +16,19 @@ def point_line_distance(point, line_start, line_end):
+     """Compute the shortest distance between a 3D point and a line segment defined by two 3D points"""
+     line_vector = line_end - line_start
+     point_vector = point - line_start
+-    # t represents the position of the orthogonal projection of the given point onto the infinite line defined by the segment
+-    t = np.dot(point_vector, line_vector) / np.dot(line_vector, line_vector)
++    # LOCAL PATCH (2026-08-01, le-wm). A degenerate segment — two consecutive
++    # waypoints at the same position — made this 0/0 = NaN. It happens whenever
++    # the agent is stationary, which for PushT means every parked/hold stretch
++    # including the whole park tail. NaN then poisons total_traj_err (np.max),
++    # and `if total_traj_err < err_threshold` is False for NaN, so the DP could
++    # never accept such a segment and packed waypoints into it. Dense waypoints
++    # are exactly what the DBSCAN step reads as a PRECISION phase, so a
++    # free-retreat tail was being labelled as the slowest part of the demo.
++    # A zero-length segment is a point; its distance is the point distance.
++    denom = np.dot(line_vector, line_vector)
++    if denom <= 1e-12:
++        return np.linalg.norm(point - line_start)
++    t = np.dot(point_vector, line_vector) / denom
+     t = np.clip(t, 0, 1)
+     projection = linear_interpolation(line_start, line_end, t)
+     return np.linalg.norm(point - projection)

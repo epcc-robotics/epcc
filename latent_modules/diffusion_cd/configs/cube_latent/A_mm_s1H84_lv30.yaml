@@ -1,0 +1,30 @@
+# A_mm_s1H84_lv30 — FRAME-RESOLUTION redo of the 2026-05 H=83 stride-1 cube cell,
+# on the CURRENT CHAMPION recipe (A_mm). Requires the relaxed chiunet.py:140
+# assert — run only against CD_ROOT=prj/cleandiffuser-h84.
+#
+# FORCED vs A_mm.yaml:
+#   stride  5 -> 1     the experiment
+#   horizon 16 -> 84   span (H-1)*s = 83 env-steps; 84 % 4 == 0 (two Downsample1d)
+#   history 2 -> 6     holds conditioning span at (K-1)*s = 5 env-steps == champion
+# CHOSEN:
+#   lambda_vel = 3.0  (arm of the 2-way probe: 15.0 = stride-compensated 3x5,
+#                        matching job 8282418; 3.0 = literal champion value)
+#   save_freq 10000 -> 2000  so the val minimum is actually checkpointed
+# UNCHANGED: postpad h5 (NOT truncated — the frozen tail is deliberate end-behaviour
+#   supervision), padding_mode, batch 256, lr, ema, diffusion_steps, model_dim, dim_mult.
+defaults:
+  - base
+  - _self_
+
+nn: chi_unet
+predict_noise: false
+normalizer_kind: minmax
+x_clip: true
+x_clip_abs: 1.0
+
+stride: 1
+horizon: 84
+history: 6
+lambda_vel: 3.0
+save_freq: 2000
+exp_name: A_mm_s1H84_lv30_${now:%Y%m%d_%H%M%S}

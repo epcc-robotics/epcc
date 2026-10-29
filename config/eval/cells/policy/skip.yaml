@@ -1,0 +1,24 @@
+# @package policy
+# In-process SkiP — wraps an absolute-pose inner DPPolicy and converts its
+# predicted absolute ee pose into the env's DELTA action at get_action():
+#   a_norm = clip((abs_target - current_state) / action_range, -1, 1).
+# Skip regions (target = next-key pose, a few cm away) execute fast at the
+# env's max per-step speed (5cm xyz); key regions stay small/precise. No env
+# modification, no motion planner. Runs at the normal env clock (0.05s) — the
+# speedup is realized in action space, not by scaling control_timestep (SAIL).
+_target_: policy.skip.SkipPolicy
+inner:
+  _target_: policy.dp.DPPolicy
+  ckpt_path: ${diffusion.ckpt_path}
+  train_h5_path: ${diffusion.train_h5_path}
+  action_dim: ${diffusion.action_dim}
+  action_horizon: ${diffusion.horizon}
+  action_steps: ${diffusion.action_steps}
+  obs_steps: ${diffusion.obs_steps}
+  image_size: ${diffusion.image_size}
+  n_views: ${diffusion.n_views}
+  crop_shape: ${diffusion.crop_shape}
+  sample_steps: ${diffusion.sample_steps}
+  use_group_norm: ${diffusion.use_group_norm}
+  use_seq: ${diffusion.use_seq}
+  nn: ${diffusion.nn}

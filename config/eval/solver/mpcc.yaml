@@ -1,0 +1,60 @@
+_target_: latent_modules.mpcc.MPCCSolver
+_recursive_: false
+inner_solver:
+  _target_: stable_worldmodel.solver.CEMSolver
+  batch_size: 1
+  num_samples: 300
+  var_scale: 1.0
+  n_steps: 30
+  topk: 30
+  device: "cuda"
+  seed: ${seed}
+
+  # MPCC ν shaping defaults (Scenario B: ν > 0 strict, slow allowed, natural cap at 1.0).
+  # Activated only when paired with ``physical_dim`` (set in task yaml under
+  # ``solver.inner_solver.physical_dim``); without physical_dim CEM runs in MPC
+  # mode and these kwargs are ignored.
+  nu_clamp: [0.0, 1.0]    # ν > 0 enforced; ν ≤ 1.0 = natural pace cap
+  nu_init: 0.5            # cold-start batch_mean for ν (mode at midpoint)
+  nu_var_scale: 0.25      # narrow exploration; 99.7% of N(0.5, 0.25) ∈ [-0.25, 1.25]
+
+cost_weights:
+  contour: 0.10722
+  progress: 16.84342
+  action: 0.0058469
+  # contour_mode: "legacy" = original single ‖z_pred−z_ref(θ)‖² (contour²+lag²
+  # combined). "split" = tangent decomposition at z_ref(θ): lag=(e·t̂)²,
+  # contour=‖e‖²−lag (1st-order, straight-path assumption). "project" = canonical
+  # MPCC: project z_pred onto path → z(θ̂); contour=‖z_pred−z(θ̂)‖² (true ⊥ dist),
+  # lag=‖z(θ̂)−z_ref(θ)‖² (along-path progress gap; curvature-exact, needs project).
+  # q_lag couples θ to actual progress (stops the progress/agent runaway).
+  # NOTE: contour_mode=project is distinct from theta_anchor=project (that one
+  # projects cur_emb to set θ₀; this one projects z_pred to define the geometry).
+  contour_mode: legacy
+  lag: 0.0          # q_lag; used only when contour_mode=split|project (set ≫ contour)
+  # "reachable reference" toggles — the decisive MPC≡MPCC test. ref_target:
+  # interp(legacy off-manifold blend) | snap(nearest real demo frame, reachable).
+  # theta_anchor: project(legacy, cur_emb→path) | time(env-step pointer, MPC-like).
+  # project+interp = legacy; time+snap ≈ MPC. Defaults → bit-exact legacy.
+  ref_target: interp
+  theta_anchor: project
+  # OOD penalties (ported from MPC). ensemble JRD targets MPCC's WM-exploitation
+  # failure mode (cost += lambda·Σ_t max(0, JRD−eps)). Disabled by default.
+  ensemble:
+    enable: false
+    ckpt: null
+    meta: null
+    lambda: 1.0
+    eps: null
+  density:
+    enable: false
+    npz: null
+    meta: null
+    lambda: 1.0
+    q: null
+reference:
+  episode_idx: 0
+  dataset_name: ${eval.dataset_name}
+  img_size: 224
+  chunk_size: 64
+  cache_dir: ${cache_dir}

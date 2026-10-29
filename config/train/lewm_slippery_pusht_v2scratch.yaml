@@ -1,0 +1,77 @@
+# lewm_slippery_pusht_v2scratch.yaml — FROM-SCRATCH train on corpus v2.
+#
+# Hedge/A-B companion to lewm_slippery_pusht_v2ft (2026-06-10): same recipe as
+# the v1 WM (lewm_slippery_pusht.yaml) but on corpus v2 = play 4000 (teleop
+# excluded) + noise_play_n2000. Everything trains (encoder included) → NEW
+# latent space; compare via SR (G3) only, not latent metrics/decoders.
+# Encoder built via the local ViTModel fallback in train.py (spt.vit_hf is
+# broken in this env); arch parity with v1 verified by state_dict comparison.
+
+defaults:
+  - data: slippery_pusht
+  - _self_
+
+output_model_name: lewm_slippery_d035_v2scratch
+subdir: ${hydra:job.id}
+
+num_workers: 6
+train_split: 0.9
+seed: 3072
+img_size: 224
+patch_size: 14
+encoder_scale: tiny
+dump_object: True
+
+trainer:
+  max_epochs: 20            # a100 ~2.3h/epoch est. on 1.78M frames; ckpt every epoch
+  devices: auto
+  accelerator: gpu
+  precision: bf16
+  gradient_clip_val: 1.0
+
+loader:
+  batch_size: 128           # encoder backward needs the memory headroom
+  num_workers: ${num_workers}
+  persistent_workers: True
+  prefetch_factor: 3
+  pin_memory: True
+
+optimizer:
+  type: AdamW
+  lr: 5e-5
+  weight_decay: 1e-3
+
+wandb:
+  enabled: True
+  config:
+    project: lewm-slippery-v2
+    name: ${output_model_name}
+    id: ${subdir}
+    resume: allow
+    log_model: False
+
+wm:
+  type: lewm
+  history_size: 3
+  num_preds: 1
+  embed_dim: 192
+
+predictor:
+  depth: 6
+  heads: 16
+  mlp_dim: 2048
+  dim_head: 64
+  dropout: 0.1
+  emb_dropout: 0.0
+
+loss:
+  sigreg:
+    weight: 0.09
+    kwargs:
+      knots: 17
+      num_proj: 1024
+
+data:
+  dataset:
+    name: slippery_pusht/data/slippery_pusht_wm_corpus_v2
+    cache_dir: ${oc.env:STABLEWM_HOME}

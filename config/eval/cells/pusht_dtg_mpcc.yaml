@@ -1,0 +1,95 @@
+# @package _global_
+# In-process pusht_dtg_mpcc via the v2 unified eval loop. Combines:
+#   - pusht task surface (single-view, 224x224, eval_budget=435, fixed-goal patch)
+#     from pusht_gt_mpcc.yaml
+#   - DTG-MPCC policy stack (DTGMPCCPolicy + cleandiffuser planner + MPCC tracker)
+#     from cube_dtg_mpcc.yaml
+#
+# Checkpoint: pusht/diffusion_trajgen/dtg_025/ (chi_unet + x0 + MinMax, equiv. to
+# cube's "A_mm" — see meta.json: predict_noise=false, normalizer_kind=minmax,
+# horizon=16, history=2, stride=5, latent_dim=192). is_cleandiffuser_ckpt() will
+# return True and dispatch to CleanDiffuserDiffMPCCPolicy.
+defaults:
+  - /task: pusht
+  - /policy: dtg_mpcc
+  - /solver: mpcc_pusht
+  - _self_
+
+seed: 42
+cache_dir: ${oc.env:STABLEWM_HOME}
+
+output:
+  run_name: pusht_dtg_mpcc_v2_inproc_n47_verify
+  findings_dir: findings/260521_baseline_setup
+  logdir_subkey: pusht_dtg_mpcc_v2_inproc
+
+task:
+  # checkpoints/pusht_wm/lewm_object.ckpt (PushT WM)
+  policy_config_group: pusht_wm/lewm
+  eval_budget: 435            # full=true grows this to ep-len (~489); matches my baseline
+  control_timestep_s: 0.1
+
+# DTGMPCCPolicy auto-dispatches via is_cleandiffuser_ckpt() — single ckpt path is
+# enough; planner reads normalizer_stats.npz from the same dir.
+diffusion:
+  ckpt_path: ${cache_dir}/pusht/diffusion_cd_v2/pusht_latent_velloss/A_mm_v2/42/models/model_final.pt
+
+debug:
+  decoder_checkpoint: null
+
+# Solver: mpcc_pusht defaults + diffusion-MPCC stride override. DTGMPCCPolicy.reset()
+# auto-sets solver.reference.stride = diff.stride if cfg is None or 1 (line 77-80 of
+# policy/dtg_mpcc.py), but we set it explicitly here for parity with the cube fix.
+solver:
+  inner_solver:
+    num_samples: 300               # my baseline: pusht DTG-MPCC ns=300 (was 1000)
+    batch_size: ${eval.num_eval}   # my baseline: batch_size=50 (all envs)
+    n_steps: 30
+    nu_init: 0.9
+  reference:
+    c: 0.25                    # legacy pusht_dtg_mpcc.yaml default; DTG generates its
+                              # own ref so c is less critical than for GT+MPCC
+    # Diff frame stride = 5 (from meta.json); MPCC must match or refs misalign.
+    stride: 5
+
+plan_config:
+  horizon: 5
+  receding_horizon: 3         # cube DTG anchor uses rh=3 (stride=5 → 15 env-steps/replan)
+  action_block: 5
+  use_past_context: true
+
+world:
+  env_name: ${task.env_name}
+  num_envs: ${eval.num_eval}
+  max_episode_steps: ${task.eval_budget}
+  history_size: 3             # PushT WM expects predictor pos_embedding (1,3,192)
+  frame_skip: 1
+  resolution: 224             # PushT WM (pusht/lewm) was trained at 224×224
+
+dataset:
+  # WM-training stats (NOT slow eval ref) — critical so CEM action-projection
+  # aligns with WM training distribution. Mirrors pusht_gt_mpcc recipe.
+  stats: ${task.dataset_stats}
+  keys_to_cache:
+    - action
+    - proprio
+    - state
+
+full: true
+
+eval:
+  num_eval: ${task.num_eval}
+  eval_budget: ${task.eval_budget}
+  dataset_name: ${task.dataset_name}
+  goal_offset_steps: 25
+  debug_video: false
+  start_offset: 5             # unify all baselines at train-distribution init
+  img_size: 224
+  # Only _set_state — goal_state is forced to PUSHT_FIXED_GOAL by
+  # force_pusht_fixed_goal() in eval_unified.py. See pusht_gt_mpcc recipe
+  # for the full explanation of why _set_goal_state callable is removed.
+  callables:
+    - method: _set_state
+      args:
+        state:
+          value: state

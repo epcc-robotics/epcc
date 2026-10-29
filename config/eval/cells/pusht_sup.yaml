@@ -1,0 +1,122 @@
+# @package _global_
+# Plain PushT — SuP over the park-generation CleanDiffuser DP, under OUR table's
+# evaluation condition.
+#
+# Differs from the original ws_reproduce/pusht_sup_state_gate.yaml in three
+# ways, all deliberate:
+#   1. backbone   the original cell points at pusht/policy/dp_clenadiffuser (non-park).
+#                 Every other row of our table — DP, DTG-MPCC, SkiP — is on the
+#                 park generation, and a baseline on a different generation is
+#                 not comparable to the rows beside it.
+#   2. scheduler  iql_*_park.pt, rebuilt 2026-08-01 on the park demos. Adding
+#                 the park tail moved eps from 1.973 to 1.313 on the robot
+#                 channel, so the shipped iql_*.pt encodes a different threshold.
+#   3. condition  489 / full=true / history 3 / goal_offset 25, i.e. the same as
+#                 pusht_dp. Theirs runs 435 / full=false / history 1 / 20.
+# Their cell is untouched — run it directly to reproduce their numbers.
+#
+# Actions here are RELATIVE 2-d deltas (the plain CleanDiffuser DP), so this
+# uses SuPGatedDPPolicy in `accumulate` mode — paper Eq.2 Delta. Slippery is the
+# odd one out: it moved to an absolute-waypoint backbone and therefore to
+# `decimate` (slippery_pusht_sup_cd_abs.yaml).
+#
+# Walls off (WS, 2026-08-01: "yes we should run all wall off").
+#
+# Rows produced from this cell:
+#   DP (park)     policy.sup.score_mode=none policy.sup.fixed_k=1   [= pusht_dp]
+#   fixed-k       policy.sup.score_mode=none policy.sup.fixed_k=K
+#   SuP faithful  policy.sup.channel=robot + adm_A + iql_robot_park
+#   SuP ours      defaults below (channel=full)
+defaults:
+  - /task: pusht
+  - /policy: sup_gated_dp
+  - _self_
+
+seed: 42
+cache_dir: ${oc.env:STABLEWM_HOME}
+
+output:
+  run_name: pusht_sup_park_n50
+  findings_dir: findings/260521_baseline_setup
+  logdir_subkey: logs_sh_repro_wallsoff
+
+task:
+  policy_config_group: pusht_wm/lewm
+  eval_budget: 489
+  control_timestep_s: 0.1
+
+diffusion:
+  # park-generation plain PushT DP — the same checkpoint the pusht_dp row uses.
+  ckpt_path: ${cache_dir}/checkpoints/dp/pusht_h16/models/model_final.pt
+  train_h5_path: ${cache_dir}/datasets/expert_slow_025_n200_centered_v2_park.h5
+  nn: chi_unet
+  horizon: 16
+  obs_steps: 2
+  action_steps: 8
+  action_dim: 2
+  image_size: 96
+  n_views: 1
+  crop_shape: [84, 84]
+  sample_steps: 50
+  use_group_norm: true
+  use_seq: true
+
+debug:
+  decoder_checkpoint: null
+
+plan_config:
+  horizon: 5
+  # 1 x 15 = the chunk length C the IQL was synthesised with
+  # (build_iql_dataset.py default). Keeping them equal avoids the truncation
+  # warning documented as scripts/sup/README known-issue #1.
+  receding_horizon: 15
+  action_block: 1
+  use_past_context: true
+
+solver:
+  inner_solver:
+    physical_dim: 2
+    n_steps: 30
+
+policy:
+  sup:
+    score_mode: state_adm_iql
+    channel: full
+    k_values: [1, 2, 3, 4, 5, 6]
+    eps: 5.0                      # only read when score_mode=state_adm
+    adm_path: ${cache_dir}/pusht/sup/adm_B.pt
+    iql_path: ${cache_dir}/pusht/sup/iql_full_park.pt
+
+world:
+  env_name: ${task.env_name}
+  num_envs: ${eval.num_eval}
+  # 2 x eval_budget, the convention every one of the 553 recorded PushT runs
+  # used. Restated because the committed cells resolve it to 1x.
+  max_episode_steps: 978
+  history_size: 3
+  frame_skip: 1
+  resolution: 96
+  escapable_block: true
+
+dataset:
+  stats: ${task.dataset_stats}   # DP uses its own normalizer; unused here
+  keys_to_cache:
+    - action
+    - state
+
+full: true
+
+eval:
+  num_eval: ${task.num_eval}
+  eval_budget: ${task.eval_budget}
+  dataset_name: ${task.dataset_name}
+  goal_offset_steps: 25
+  debug_video: false
+  img_size: 96
+  start_offset: 5
+  save_traj: true
+  callables:
+    - method: _set_state
+      args:
+        state:
+          value: state

@@ -1,0 +1,41 @@
+# @package policy
+# SuP gate over a CleanDiffuser DP that emits RELATIVE action deltas
+# (plain PushT, cube). Mirror of ws_reproduce/policy/sup_gated_dp.yaml so cells
+# under config/eval/cells can select it — Hydra only searches the group directory of
+# the config dir in use, and that mirror is the whole reason this file exists.
+#
+# The absolute-waypoint counterpart is sup_gated_dp_cd_abs.yaml (slippery).
+#   relative deltas -> accumulate (paper Eq.2 Delta)
+#   absolute poses  -> decimate   (paper Eq.2 Abs)
+# They are equivalent — decimating absolute waypoints is accumulating the deltas
+# between the kept ones — so one ADM serves both.
+#
+# score_mode=none + fixed_k=1 is bit-for-bit the base DP.
+_target_: policy.sup_gated.SuPGatedDPPolicy
+ckpt_path: ${diffusion.ckpt_path}
+train_h5_path: ${diffusion.train_h5_path}
+action_dim: ${diffusion.action_dim}
+action_horizon: ${diffusion.horizon}
+action_steps: ${diffusion.action_steps}
+obs_steps: ${diffusion.obs_steps}
+image_size: ${diffusion.image_size}
+n_views: ${diffusion.n_views}
+crop_shape: ${diffusion.crop_shape}
+sample_steps: ${diffusion.sample_steps}
+use_group_norm: ${diffusion.use_group_norm}
+use_seq: ${diffusion.use_seq}
+nn: ${diffusion.nn}
+
+sup:
+  enabled: true
+  # 1-6, matching the KS the D'/IQL were built over (build_iql_dataset.py:35).
+  # The shipped ws_reproduce group stops at 3, which would silently mask the
+  # scheduler's ability to pick the larger rates it was trained on.
+  k_values: [1, 2, 3, 4, 5, 6]
+  fixed_k: 1
+  score_mode: state_adm_iql       # none | state_adm | state_adm_iql
+  eps: 5.0                        # only read when score_mode=state_adm
+  downsample_mode: accumulate
+  gripper_dim: -1
+  sat_limit: 1.0
+  log_decisions: true

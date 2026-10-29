@@ -1,0 +1,11 @@
+# SV PushT MPC controller — extends generic mpc.yaml with task-specific values.
+# Used by eval_diffusion_mpc.py (no GT-MPC PushT route yet; can be added).
+# No physical_dim / no reference.c — MPC tracks fixed time-indexed refs (no ν).
+defaults:
+  - mpc
+  - _self_
+
+inner_solver:
+  batch_size: ${eval.num_eval}        # batch all envs in one CEM solve
+  action_clamp: [4.8344, 4.8700]      # per env-action-dim; from pusht_expert_train scaler
+  env_clip_range: [-1.0, 1.0]         # env action_space bounds

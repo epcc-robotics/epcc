@@ -1,0 +1,12 @@
+# @package _global_
+# Table I, SuP baseline (robot-only gate).
+# Published run: findings/261023_sup_robot/runs/cube_sup_robot_paperhp (Hydra record logs_smoke/hydra/cube_sup_robot_paperhp_14331904).
+# Base recipe: config/eval/cells/cube_sup.yaml; the keys below are that run's command-line overrides,
+# machine paths rewritten to ${cache_dir} (= $STABLEWM_HOME). Generated 2026-10-27; do not edit by hand.
+defaults:
+  - ../../cube_sup
+  - _self_
+policy:
+  sup: {iql_path: '${cache_dir}/cube/sup/iqlak_robot_park_paper.pt', channel: robot,
+    adm_path: '${cache_dir}/cube/sup/adm_A.pt'}
+eval: {save_traj: true}

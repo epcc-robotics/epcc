@@ -1,0 +1,12 @@
+# @package _global_
+# Table I, DP baseline.
+# Published run: findings/260521_baseline_setup/logs_sh_repro_wallsoff/slippery_pusht_dp_wallsoff (Hydra record logs_smoke/hydra/slippery_pusht_dp_wallsoff_11606746).
+# Base recipe: config/eval/cells/slippery_pusht_dp.yaml; the keys below are that run's command-line overrides,
+# machine paths rewritten to ${cache_dir} (= $STABLEWM_HOME). Generated 2026-10-27; do not edit by hand.
+defaults:
+  - ../../slippery_pusht_dp
+  - _self_
+world: {escapable_block: true, max_episode_steps: 1188}
+eval: {save_traj: true}
+diffusion: {ckpt_path: '${cache_dir}/checkpoints/dp/slippery_pusht_h16/models/model_final.pt',
+  train_h5_path: '${cache_dir}/slippery_pusht/data/expert_slow_050_n200_d035_park.h5'}

@@ -1,0 +1,71 @@
+pipeline_name: dp_pusht_sv_image_reached
+mode: train
+
+# SAIL step 2/3 for the PushT family — reached-pose DP.
+#
+# Architecture is byte-for-byte the relative/absolute PushT SV DP; only the
+# action target changes, so any difference in the SAIL numbers is attributable
+# to the target rather than the model. That is the same discipline
+# scripts/sail/train_reached_dp.sh applies on cube.
+#
+# action = [x, y, precision] (3). The precision column rides along because
+# policy/sail.py:239 checks `action.shape[-1] == env_action_dim + 1`
+# unconditionally — even the use_precision=False arm needs it present.
+#
+# Default = SLIPPERY. For plain PushT:
+#   ++dataset_path=${STABLEWM_HOME}/pusht/sail/awe/plain_reached_precision_park.h5
+dataset_path: ${oc.env:STABLEWM_HOME}/slippery_pusht/sail/awe/slippery_reached_precision_park.h5
+num_workers: 8
+
+shape_meta:
+  action: {shape: [3]}
+  obs:
+    image: {shape: [3, 96, 96], type: rgb}    # single agent view (H5 key: `pixels`)
+
+action_dim: 3
+obs_steps: 2
+action_steps: 8
+horizon: 16
+
+dataset:
+  # NOT the plain PushTSVImageDataset: its action window starts at the sampler
+  # index t, but the policy acts from a = t + n_obs_steps - 1. See the class
+  # docstring — this is the docs #6 off-by-one.
+  _target_: latent_diffusion_cd.dataset.pusht_sv_reached_image_dataset.PushTSVReachedImageDataset
+  dataset_dir: ${dataset_path}
+  shape_meta: ${shape_meta}
+  n_obs_steps: ${obs_steps}
+  horizon: ${horizon}
+
+rgb_model: resnet18
+resize_shape: null
+crop_shape: [84, 84]
+random_crop: true
+use_group_norm: true
+use_seq: true
+
+nn: chi_unet
+diffusion: ddpm
+sample_steps: 50
+temperature: 1.0
+
+device: cuda:0
+seed: 42
+gradient_steps: 100000
+batch_size: 64
+lr: 1.0e-4
+
+log_freq: 200
+save_freq: 10000
+exp_name: pusht_sv_reached_${nn}_${diffusion}_step${sample_steps}_h${horizon}_${now:%Y%m%d_%H%M%S}
+save_path: ${oc.env:STABLEWM_HOME}/train/dp
+project: CleanDiffuser
+group: dp_pusht_sv_image_reached
+wandb_mode: offline
+work_dir: ${save_path}/${pipeline_name}/${exp_name}/${seed}
+
+hydra:
+  run:
+    dir: ${work_dir}
+  job:
+    chdir: false

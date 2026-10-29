@@ -1,0 +1,107 @@
+# @package _global_
+# Plain PushT — proper SAIL (reached-pose DP + live delta tracking).
+#
+# This REPLACES the pusht_sail row. That cell runs
+# policy.sail.SAILPolicy, which only rescales the env control rate and passes
+# the inner policy's actions through untouched — the paper's DP-Fast naive
+# baseline, not SAIL. Decision 2026-08-01: the DP-Fast rows are dropped from the
+# table entirely and SAIL means the reached-pose body.
+#
+# FAIR BUDGET RULE. Speeding up the control rate by k means k times more control
+# steps cover the same simulated time, so eval_budget must scale with k or a
+# fast run is judged on a shorter horizon:
+#     eval.eval_budget        = ceil(489 * k)
+#     world.max_episode_steps = 2 * that
+# 489 is this task's walls-off budget, the same one every other plain row
+# uses. max_episode_steps is doubled rather than matched: it only has to be a
+# ceiling the budget never reaches, and every PushT run in the project's history
+# used 2x. Scaling one knob and not the other is what produced a spurious 0%
+# cell on cube (scripts/sail/eval_sail.sh header).
+#
+# `full: true` is safe here despite the explicit budget — an integer
+# eval_budget is taken as-is and only `null` auto-derives from ep_len
+# (eval_mpc_multiview.py:1191-1200).
+#
+# Run through scripts/sail/eval_sail_pusht.sh, which sets all three together.
+defaults:
+  - /task: pusht
+  - /policy: sail_reached_pusht
+  - _self_
+
+seed: 42
+cache_dir: ${oc.env:STABLEWM_HOME}
+
+output:
+  run_name: pusht_sail_reached_k${policy.fast_dt_factor}_n${task.num_eval}
+  findings_dir: findings/260521_baseline_setup
+  logdir_subkey: logs_sail_reached
+
+task:
+  policy_config_group: pusht_wm/lewm
+  eval_budget: 1223          # ceil(489 * 2.5) — override per k
+  control_timestep_s: 0.1    # nominal; the wrapper applies fast/slow dt at reset
+
+diffusion:
+  # Reached-pose 3-D DP, trained on the park labels (job 11607591).
+  ckpt_path: ${cache_dir}/checkpoints/sail/pusht_reached/models/model_final.pt
+  # The label h5, NOT the demo h5: the inner DP's action normalizer must be the
+  # one fitted to [x, y, precision], not to 2-d push deltas.
+  train_h5_path: ${cache_dir}/pusht/sail/awe/pusht_reached_precision_park.h5
+  nn: chi_unet
+  horizon: 16
+  obs_steps: 2
+  action_steps: 8
+  action_dim: 3
+  image_size: 96
+  n_views: 1
+  crop_shape: [84, 84]
+  sample_steps: 50
+  use_group_norm: true
+  use_seq: true
+
+debug:
+  decoder_checkpoint: null
+
+plan_config:
+  horizon: 5
+  receding_horizon: 15
+  action_block: 1
+  use_past_context: true
+
+solver:
+  inner_solver:
+    physical_dim: 2
+    n_steps: 30
+
+world:
+  env_name: ${task.env_name}
+  num_envs: ${eval.num_eval}
+  max_episode_steps: 2446    # 2 * eval_budget — override per k
+  history_size: 3
+  frame_skip: 1
+  resolution: 96
+
+  escapable_block: true
+
+dataset:
+  stats: ${task.dataset_stats}   # DP uses its own normalizer; unused here
+  keys_to_cache:
+    - action
+    - state
+
+full: true
+
+eval:
+  num_eval: ${task.num_eval}
+  eval_budget: ${task.eval_budget}
+  dataset_name: ${task.dataset_name}
+  goal_offset_steps: 25
+  debug_video: false
+  img_size: 96
+  start_offset: 5
+  save_traj: true
+  callables:
+    - method: _set_state
+      args:
+        state:
+          value: state

@@ -1,0 +1,38 @@
+# @package candidates
+# EPCC-5 candidate library — cube.  See _common.md.
+mode: select
+library: P
+rates: [1.0, 2.0, 3.0, 4.0, 5.0]
+n_dp_samples: 8
+dp_chunk_len: 75          # 16 DTG waypoints x stride 5 = the whole contour
+transform: accumulate     # relative actions -> sum of k consecutive deltas
+
+# Family R head. invdyn.stride MUST equal plan_config.action_block (5): one
+# waypoint pair decodes to exactly one CEM step, which is what makes
+# S_j = theta[j*k] exact.
+invdyn_ckpt: ${cache_dir}/cube/invdyn/best.pt
+
+dp:
+  ckpt_path: ${cache_dir}/checkpoints/dp/cube_h128/models/model_90000.pt
+  train_h5_path: ${cache_dir}/datasets/cube_multiview_diffusion_c0.3_postpad_fullscale.h5
+  nn: chi_unet
+  horizon: 128
+  obs_steps: 2
+  action_steps: 8
+  action_dim: 5
+  image_size: 96
+  n_views: 2
+  crop_shape: [84, 84]
+  sample_steps: 50
+  use_group_norm: true
+  use_seq: true
+
+# REFINE(SuP-init): SuP's own ADM/IQL scheduler picks the rate, we refine the actions at
+# it. Only read when candidates.mode=refine_sup. The IQL is the C=75 rebuild -- it must be
+# built at dp_chunk_len or the gate zero-pads a state it was never trained on, which would
+# gate a different policy than the one we run (policy/dtg_mpcc_cand.py checks this).
+# adm_B + channel=full is the assets pair the SuP rows in our table use.
+sup:
+  adm_path: ${cache_dir}/cube/sup/adm_B.pt
+  iql_path: ${cache_dir}/cube/sup/iql_full_h128.pt
+  channel: full

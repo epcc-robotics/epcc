@@ -1,0 +1,80 @@
+pipeline_name: pusht_latent_velloss
+mode: train
+
+# ---- data ----
+# Override via Hydra: ++h5_path=/path/to/pusht_*_latent.h5
+h5_path: ${oc.env:STABLEWM_HOME}/pusht/latents/expert_slow_025_n200_centered_v2_park_latents_lewm.h5
+max_episodes: null         # null = use all successful episodes
+val_frac: 0.1
+num_workers: 8
+padding_mode: valid_only
+use_is_pad: false          # only meaningful for dp / half_dp padding
+
+# ---- window ----
+horizon: 18                # H — latent trajectory length (matches cube 70% baseline)
+history: 2                 # K — history frames
+stride: 5                  # env-frames between adjacent latent frames (matches pushT frameskip)
+
+# ---- dataset (Hydra dispatch — task-specific class) ----
+dataset:
+  _target_: latent_diffusion_cd.dataset.pusht_latent_dataset.PushTLatentDataset
+  h5_path: ${h5_path}
+  horizon: ${horizon}
+  history: ${history}
+  stride: ${stride}
+  max_episodes: ${max_episodes}
+  normalizer_kind: ${normalizer_kind}
+  padding_mode: ${padding_mode}
+  seed: ${seed}
+  val_frac: ${val_frac}
+
+# ---- diffusion target / loss ----
+predict_noise: false       # A/C ablations: x0; B ablations: True (ε, broken for latent)
+lambda_vel: 3.0            # matches cube 70% baseline E_v3
+lambda_acc: 0.0
+motion_only_pad: false
+fix_mask_first: true       # anchor first latent frame
+
+# ---- backbone ----
+nn: chi_unet               # chi_unet | dit | chi_transformer
+model_dim: 384
+depth: 8
+n_heads: 6
+dim_mult: [1, 2, 2]
+cond_emb_dim: 256
+cond_hidden: 256
+cond_dropout: 0.0
+
+# ---- normalizer ----
+normalizer_kind: standard  # standard | minmax | none
+
+# ---- DDPM ----
+diffusion_steps: 50
+beta_schedule: cosine
+x_clip: false              # off for standard normalizer; consider true for minmax
+x_clip_abs: 1.0
+
+# ---- train ----
+device: cuda:0
+seed: 42
+gradient_steps: 100000
+batch_size: 256
+lr: 2.0e-4
+ema_rate: 0.9999
+
+# ---- logging ----
+log_freq: 200
+val_freq: 2000
+save_freq: 10000
+exp_name: pusht_latent_${nn}_pn${predict_noise}_${normalizer_kind}_${now:%Y%m%d_%H%M%S}
+save_path: ${oc.env:STABLEWM_HOME}/train/dtg
+project: CleanDiffuser
+group: pusht_latent_velloss
+wandb_mode: offline
+work_dir: ${save_path}/${pipeline_name}/${exp_name}/${seed}
+
+hydra:
+  run:
+    dir: ${work_dir}
+  job:
+    chdir: false

@@ -1,0 +1,34 @@
+# @package policy
+# Proper SAIL (paper §4.2+§4.3) — inner DP predicts ABSOLUTE reached EE pose
+# (+ precision bit); wrapper tracks it with live per-step deltas and toggles
+# control rate on the precision bit. Requires a reached-pose 6-D ckpt
+# (trained on cube_reached_precision_c03.h5).
+_target_: policy.sail.ReachedPoseSAILPolicy
+fast_dt_factor: 2.5
+slow_dt_factor: 1.0
+base_control_timestep: 0.05
+base_physics_timestep: 0.002
+env_action_dim: 5
+use_precision: true
+precision_threshold: 0.5
+precision_majority: 0.5   # only consulted when precision_mode=majority
+# per_env gives each of the 50 envs its own control rate (possible because the
+# eval builds a SyncVectorEnv of in-process objects). "majority" is the legacy
+# single-vote path, kept only to replay archived cells — it is provably inert
+# at n=50 since cube has just 4.3% precision frames.
+precision_mode: per_env
+inner:
+  _target_: policy.dp.DPPolicy
+  ckpt_path: ${diffusion.ckpt_path}
+  train_h5_path: ${diffusion.train_h5_path}
+  action_dim: ${diffusion.action_dim}    # 6 = absolute pose 5 + precision 1
+  action_horizon: ${diffusion.horizon}
+  action_steps: ${diffusion.action_steps}
+  obs_steps: ${diffusion.obs_steps}
+  image_size: ${diffusion.image_size}
+  n_views: ${diffusion.n_views}
+  crop_shape: ${diffusion.crop_shape}
+  sample_steps: ${diffusion.sample_steps}
+  use_group_norm: ${diffusion.use_group_norm}
+  use_seq: ${diffusion.use_seq}
+  nn: ${diffusion.nn}

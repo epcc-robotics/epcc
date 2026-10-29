@@ -1,0 +1,24 @@
+# @package policy
+# In-process SkiP for PushT — wraps an absolute-AGENT-POS inner DPPolicy and
+# converts its predicted abs agent xy into the env's relative action:
+#   a = clip((abs_target - agent.position) / action_scale, -1, 1)   (env.py:345).
+# Skip regions (target = next-key agent pose) execute fast at the env's max
+# per-step speed (~action_scale px); key regions stay small/precise. No env
+# modification, no motion planner. Mirrors cube policy/skip.yaml; only the
+# wrapper class differs (PushTSkipPolicy, 2-d agent-pos instead of 5-d ee pose).
+_target_: policy.skip.PushTSkipPolicy
+inner:
+  _target_: policy.dp.DPPolicy
+  ckpt_path: ${diffusion.ckpt_path}
+  train_h5_path: ${diffusion.train_h5_path}
+  action_dim: ${diffusion.action_dim}
+  action_horizon: ${diffusion.horizon}
+  action_steps: ${diffusion.action_steps}
+  obs_steps: ${diffusion.obs_steps}
+  image_size: ${diffusion.image_size}
+  n_views: ${diffusion.n_views}
+  crop_shape: ${diffusion.crop_shape}
+  sample_steps: ${diffusion.sample_steps}
+  use_group_norm: ${diffusion.use_group_norm}
+  use_seq: ${diffusion.use_seq}
+  nn: ${diffusion.nn}

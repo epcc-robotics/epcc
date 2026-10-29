@@ -1,0 +1,28 @@
+# slippery_pusht.yaml — data config for LeWM training on the merged WM corpus.
+#
+# The corpus is built by scripts/data/concat_wm_corpus.py from:
+#   - play:   ${oc.env:STABLEWM_HOME}/slippery_pusht/data/datasets/
+#               1xDP_slippery_pusht_WM/shard_*.h5
+#   - expert: ${oc.env:STABLEWM_HOME}/slippery_pusht/data/slippery_d035_r3.h5
+#
+# HDF5Dataset resolves the file as: {cache_dir}/datasets/{name}.h5
+# So the merged corpus must be placed at:
+#   ${oc.env:STABLEWM_HOME}/slippery_pusht/data/datasets/slippery_pusht_wm_corpus.h5
+#
+# Run concat_wm_corpus.py with --out pointing to that path AFTER both
+# DP-rollout collection AND F1+F2 finish (corpus prerequisite).
+
+dataset:
+  name: slippery_pusht_wm_corpus
+  cache_dir: ${oc.env:STABLEWM_HOME}/slippery_pusht/data
+  num_steps: ${eval:'${wm.num_preds} + ${wm.history_size}'}
+  frameskip: 5
+  keys_to_load:
+    - pixels
+    - action
+    - proprio
+    - state
+  keys_to_cache:
+    - action
+    - proprio
+    - state

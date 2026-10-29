@@ -1,0 +1,125 @@
+# @package _global_
+# Cube — SuP over our CleanDiffuser DP, under OUR table's evaluation condition.
+#
+# Cube is the easy one of the three:
+#   - it is MuJoCo, so `escapable_block` does not apply and the walls-off
+#     decision leaves it alone entirely;
+#   - its demo set has been postpad since collection — postpad is what park was
+#     ported FROM — so there is no park / non-park split to reconcile;
+#   - the backbone is already shared. `cube/dp/models/model_90000.pt` (our
+#     cube_dp row) and `cube/diffusion_policy/models/model_90000.pt` (the
+#     original SuP cell) resolve to the same file, verified by readlink.
+#
+# So the only thing that changes versus ws_reproduce/cube_sup_state_gate.yaml is
+# the scheduler: iql_*_park.pt, regenerated 2026-08-01 from our own copy of the
+# demo set. That regeneration also cross-validated the pipeline — our
+# cube/full eps came out 0.263 against the 0.2617 hardcoded in their cell.
+#
+# Actions are RELATIVE 5-d deltas, so `accumulate` (paper Eq.2 Delta).
+# ⚠️ scripts/sup/README known-issue #2: merging sums k deltas, and at k=4 53% of
+# merged cube actions exceed ±1. The env itself clips at ±1, so the gate scoring
+# the clipped action is correct here — unlike pusht, where the env does not clip
+# and the gate is therefore conservative.
+#
+# Rows produced from this cell:
+#   DP            policy.sup.score_mode=none policy.sup.fixed_k=1   [= cube_dp]
+#   fixed-k       policy.sup.score_mode=none policy.sup.fixed_k=K
+#   SuP faithful  policy.sup.channel=robot + adm_A + iql_robot_park
+#   SuP ours      defaults below (channel=full)
+defaults:
+  - /task: cube
+  - /policy: sup_gated_dp
+  - _self_
+
+seed: 42
+cache_dir: ${oc.env:STABLEWM_HOME}
+
+output:
+  run_name: cube_sup_park_n50
+  findings_dir: findings/260521_baseline_setup
+  logdir_subkey: logs_sh_repro_wallsoff
+
+diffusion:
+  ckpt_path: ${cache_dir}/cube/dp/models/model_90000.pt
+  train_h5_path: ${cache_dir}/datasets/cube_multiview_diffusion_c0.3_postpad_fullscale.h5
+  nn: chi_unet
+  horizon: 16
+  obs_steps: 2
+  action_steps: 8
+  action_dim: 5
+  image_size: 96
+  n_views: 2
+  crop_shape: [84, 84]
+  sample_steps: 50
+  use_group_norm: true
+  use_seq: true
+
+debug:
+  decoder_checkpoint: null
+
+plan_config:
+  horizon: 5
+  receding_horizon: 15
+  action_block: 1
+  use_past_context: true
+
+solver:
+  inner_solver:
+    physical_dim: 5
+    n_steps: 30
+
+policy:
+  sup:
+    score_mode: state_adm_iql
+    channel: full
+    k_values: [1, 2, 3, 4, 5, 6]
+    eps: 0.2617                   # only read when score_mode=state_adm
+    adm_path: ${cache_dir}/cube/sup/adm_B.pt
+    iql_path: ${cache_dir}/cube/sup/iql_full_park.pt
+
+world:
+  env_name: ${task.env_name}
+  num_envs: ${eval.num_eval}
+  max_episode_steps: 200
+  history_size: 3
+  frame_skip: 5
+  env_type: single
+  ob_type: states
+  multiview: false
+  width: 224
+  height: 224
+  visualize_info: false
+  terminate_at_goal: true
+
+dataset:
+  stats: ${task.dataset_stats}
+  keys_to_cache:
+    - action
+
+full: true
+
+eval:
+  num_eval: ${task.num_eval}
+  eval_budget: ${task.eval_budget}
+  dataset_name: ${task.dataset_name}
+  goal_offset_steps: ${task.goal_offset_steps}
+  debug_video: false
+  start_offset: 5
+  img_size: 224
+  save_traj: true
+  callables:
+    - method: set_state
+      args:
+        qpos:
+          value: qpos
+        qvel:
+          value: qvel
+    - method: set_target_pos
+      args:
+        cube_id:
+          value: 0
+          in_dataset: false
+        target_pos:
+          value: goal_privileged_target_block_pos
+        target_quat:
+          value: goal_privileged_block_0_quat

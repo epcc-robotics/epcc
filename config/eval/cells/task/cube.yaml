@@ -1,0 +1,23 @@
+# @package task
+# Task spec — env + success spec + dataset + metrics class.
+# Composed by cell recipes via defaults: [/task: cube, /policy: <X>, _self_].
+task_name: cube
+env_name: swm/OGBCube-v0
+# cube WM (pv_aw_cube_scratch epoch 11) + postpad-fullscale eval set.
+# swm prepends checkpoints/ (policy) and datasets/ (dataset/stats) — see farm symlinks.
+policy_config_group: cube_wm/lewm_pv_aw_cube_scratch_epoch_11
+dataset_name: cube_multiview_diffusion_c0.3_postpad_fullscale
+dataset_stats: cube_multiview_WM
+num_eval: 50
+# eval_budget: null → auto-derive from dataset ep_len when `full: true`.
+# Set to an int (here or at the cell level) to cap/override the budget.
+eval_budget: null
+goal_offset_steps: 25
+# Sim-time control_timestep used by Phase 3 TTC computation. Cube default
+# is OGBench's 0.05 (20 Hz control). SAIL variants override per recipe.
+control_timestep_s: 0.05
+
+metrics:
+  _target_: policy._metrics.CubeGTRMetrics
+  n_envs: ${task.num_eval}
+  control_timestep_s: ${task.control_timestep_s}

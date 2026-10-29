@@ -1,0 +1,14 @@
+# @package _global_
+# Fig. 3a, SuP at damping d080.
+# Published run: findings/261023_sup_robot/runs/supplain_robot_d080 (Hydra record logs_smoke/hydra/supplain_robot_d080_14331913).
+# Base recipe: config/eval/cells/pusht_sup.yaml; the keys below are that run's command-line overrides,
+# machine paths rewritten to ${cache_dir} (= $STABLEWM_HOME). Generated 2026-10-27; do not edit by hand.
+defaults:
+  - ../../pusht_sup
+  - _self_
+world: {damping: 0.8, escapable_block: true}
+eval: {save_traj: true, dataset_name: slippery_pusht/data/expert_slow_050_n200_d035}
+policy:
+  sup: {iql_path: '${cache_dir}/pusht/sup/iqlak_robot_park_paper.pt', sat_limit: 1000000000.0,
+    channel: robot, adm_path: '${cache_dir}/pusht/sup/adm_A.pt'}
+task: {eval_budget: 594}

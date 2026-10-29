@@ -1,0 +1,33 @@
+defaults:
+  - _self_
+
+cache_dir: "${oc.env:STABLEWM_HOME}/cube/collect"
+
+world:
+  num_envs: 10
+  max_episode_steps: 200   # matches original cube dataset (201 steps incl. init)
+  image_shape: [224, 224]
+
+seed: 3072         # champion corpus used 3072 — D-grid collections use a NEW seed (e.g. 3073+)
+num_traj: 10000    # matches LeWM paper (10K eps × 200 steps = 2M frames)
+
+# Pace multiplier, applied AFTER the oracle's [-1,1] clip (afterclip, all 5 dims
+# incl. gripper — same ordering as the c=0.3 demo corpus). 1.0 = bit-exact
+# original play pipeline. D-grid values: cube {0.3, 0.75, 1.2}.
+# At c<1 max_episode_steps is auto-scaled to round(200/c) to keep the
+# mid-episode goal-resample density invariant.
+slowdown_factor: 1.0
+action_noise: 0.0
+
+# Output h5 name; null -> auto cube_multiview_WM_c{slowdown_factor}
+# (always c-suffixed so the champion cube_multiview_WM.h5 is never appended to).
+name: null
+
+mode: validate   # 'validate' for small test run with video, 'collect' for full
+
+# Validation settings
+n_val_episodes: 5
+
+# Wrist camera settings
+wrist_cam_fovy: 90
+wrist_cam_img_size: 224

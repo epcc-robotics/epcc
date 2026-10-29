@@ -1,0 +1,12 @@
+# @package _global_
+# Fig. 3a, SAIL at damping d060.
+# Published run: findings/260521_baseline_setup/logs_friction/sailplain_k2.0_d060 (Hydra record logs_smoke/hydra/sailplain_k2.0_d060_12305151).
+# Base recipe: config/eval/cells/pusht_sail_reached.yaml; the keys below are that run's command-line overrides,
+# machine paths rewritten to ${cache_dir} (= $STABLEWM_HOME). Generated 2026-10-27; do not edit by hand.
+defaults:
+  - ../../pusht_sail_reached
+  - _self_
+world: {damping: 0.6, escapable_block: true}
+eval: {save_traj: true, dataset_name: slippery_pusht/data/expert_slow_050_n200_d035}
+policy: {fast_dt_factor: 2.0, use_precision: true}
+task: {eval_budget: 1188}

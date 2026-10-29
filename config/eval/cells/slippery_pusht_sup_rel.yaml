@@ -1,0 +1,116 @@
+# @package _global_
+# Slippery PushT — SuP over the RELATIVE-action DP. Control for the action
+# abstraction.
+#
+# Every slippery SuP run so far has used absolute waypoints: the
+# original cell wrapped the robomimic DP-repo policy, and when we moved to
+# CleanDiffuser on 2026-07-31 we kept the absolute abstraction on purpose. So
+# "SuP is slower than the demonstrator on slippery" (0.88-0.96x) currently has
+# two candidate causes and no way to separate them:
+#
+#   1. the scheduler is over-conservative      — also seen on plain and cube
+#   2. the absolute-waypoint abstraction hurts — only slippery has it
+#
+# This cell is identical to slippery_pusht_sup_cd_abs.yaml except for the action
+# abstraction, so the difference between the two isolates cause 2.
+#
+#   absolute -> decimate  (keep every k-th waypoint)
+#   relative -> accumulate (sum k consecutive deltas)     <- here
+#
+# The ADM and IQL are REUSED unchanged. That is not a shortcut: the gate scores
+# in corpus delta units either way, and decimating absolute waypoints is
+# arithmetically the same as accumulating the deltas between the kept ones
+# (scripts/sup/README, "the two downsampling conventions"). So the scheduler is
+# held fixed and only the backbone's output convention moves.
+#
+# Backbone is the park-generation relative DP — the same checkpoint the
+# `slippery_pusht_dp` row uses, so this is also comparable to that row.
+defaults:
+  - /task: pusht
+  - /policy: sup_gated_dp
+  - _self_
+
+seed: 42
+cache_dir: ${oc.env:STABLEWM_HOME}
+
+output:
+  run_name: slippery_sup_rel_n50
+  findings_dir: findings/260521_baseline_setup
+  logdir_subkey: logs_sh_repro_wallsoff
+
+task:
+  policy_config_group: slippery_pusht/lewm
+  eval_budget: 594
+  control_timestep_s: 0.1
+
+diffusion:
+  ckpt_path: ${cache_dir}/checkpoints/dp/slippery_pusht_h16/models/model_final.pt
+  train_h5_path: ${cache_dir}/slippery_pusht/data/expert_slow_050_n200_d035_park.h5
+  nn: chi_unet
+  horizon: 16
+  obs_steps: 2
+  action_steps: 8
+  action_dim: 2
+  image_size: 96
+  n_views: 1
+  crop_shape: [84, 84]
+  sample_steps: 50
+  use_group_norm: true
+  use_seq: true
+
+debug:
+  decoder_checkpoint: null
+
+plan_config:
+  horizon: 5
+  # 1 x 15 = C, the chunk length the IQL was synthesised with.
+  receding_horizon: 15
+  action_block: 1
+  use_past_context: true
+
+solver:
+  inner_solver:
+    physical_dim: 2
+    n_steps: 30
+
+policy:
+  sup:
+    score_mode: state_adm_iql
+    channel: full
+    k_values: [1, 2, 3, 4, 5, 6]
+    eps: 5.0                     # only read when score_mode=state_adm
+    adm_path: ${cache_dir}/slippery_pusht/sup/adm_B.pt
+    iql_path: ${cache_dir}/slippery_pusht/sup/iql_full_park.pt
+
+world:
+  env_name: ${task.env_name}
+  num_envs: ${eval.num_eval}
+  max_episode_steps: 1188        # 2 x eval_budget, the PushT convention
+  history_size: 3
+  frame_skip: 1
+  resolution: 96
+  damping: 0.35
+  escapable_block: true
+
+dataset:
+  stats: ${task.dataset_stats}   # DP uses its own normalizer; unused here
+  keys_to_cache:
+    - action
+    - state
+
+full: true
+
+eval:
+  num_eval: ${task.num_eval}
+  eval_budget: ${task.eval_budget}
+  dataset_name: slippery_pusht/data/expert_slow_050_n200_d035
+  goal_offset_steps: 25
+  debug_video: false
+  img_size: 96
+  start_offset: 5
+  save_traj: true
+  callables:
+    - method: _set_state
+      args:
+        state:
+          value: state

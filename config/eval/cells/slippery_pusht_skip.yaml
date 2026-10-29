@@ -1,0 +1,83 @@
+# @package _global_
+# Q1: trained SkiP DP on SLIPPERY PushT. Mirrors slippery_pusht_dp.yaml (damping
+# 0.35, expert_slow_050 init, budget 594) but wraps the inner DP in
+# PushTSkipPolicy and points to the slippery SkiP DP (job 11378631, 100k).
+defaults:
+  - /task: pusht
+  - /policy: pusht_skip
+  - _self_
+
+seed: 42
+cache_dir: ${oc.env:STABLEWM_HOME}
+
+output:
+  run_name: slippery_pusht_skip_n50
+  findings_dir: findings/260521_baseline_setup
+  logdir_subkey: slippery_pusht_skip
+
+task:
+  policy_config_group: slippery_pusht/lewm
+  eval_budget: 594
+  control_timestep_s: 0.1
+
+diffusion:
+  # FAITHFUL PORT (velocity-stop KF + 50/50 restored, stop_frac=0.5), retrain
+  # job 11417706 (2026-07-23). Old unfaithful-port ckpt was ...231602.
+  ckpt_path: ${cache_dir}/checkpoints/skip/slippery_pusht_h16/models/model_final.pt
+  train_h5_path: ${cache_dir}/slippery_pusht/data/expert_slow_050_n200_d035.h5
+  nn: chi_unet
+  horizon: 16
+  obs_steps: 2
+  action_steps: 8
+  action_dim: 2
+  image_size: 96
+  n_views: 1
+  crop_shape: [84, 84]
+  sample_steps: 50
+  use_group_norm: true
+  use_seq: true
+
+debug:
+  decoder_checkpoint: null
+
+plan_config:
+  horizon: 5
+  receding_horizon: 15
+  action_block: 1
+  use_past_context: true
+
+solver:
+  inner_solver:
+    physical_dim: 2
+    n_steps: 30
+
+world:
+  env_name: ${task.env_name}
+  num_envs: ${eval.num_eval}
+  max_episode_steps: ${task.eval_budget}
+  history_size: 3
+  frame_skip: 1
+  resolution: 96
+  damping: 0.35
+
+dataset:
+  stats: ${task.dataset_stats}
+  keys_to_cache:
+    - action
+    - state
+
+full: true
+
+eval:
+  num_eval: ${task.num_eval}
+  eval_budget: ${task.eval_budget}
+  dataset_name: slippery_pusht/data/expert_slow_050_n200_d035
+  goal_offset_steps: 25
+  debug_video: false
+  img_size: 96
+  start_offset: 5
+  callables:
+    - method: _set_state
+      args:
+        state:
+          value: state

@@ -1,0 +1,86 @@
+# @package _global_
+defaults:
+  - /task: cube
+  - /policy: wm_full
+  - /solver: mpc_multiview
+  - _self_
+
+seed: 42
+cache_dir: ${oc.env:STABLEWM_HOME}
+
+output:
+  run_name: cube_wm_full_v2_inproc_n50_verify
+  findings_dir: findings/260521_baseline_setup
+  logdir_subkey: cube_wm_full_v2_inproc
+
+solver_config: mpc_multiview
+
+solver:
+  inner_solver:
+    n_steps: 30
+    batch_size: 10
+    # mpc_multiview defaults action_clamp to the scalar 2.0, which is a DIFFERENT
+    # physical box on every action dim (the normalizer's std is per-dim) and moves
+    # when the world model changes. Pin the same per-dim list the other cube cells
+    # use, so swapping the WM swaps only the WM. clamp_i = wall / std_i, wall = 1.0.
+    action_clamp: [2.36, 1.57, 1.25, 1.64, 1.20]
+    env_clip_range: [-1.0, 1.0]
+  cost_weights:
+    tracking: 0.0
+    terminal: 1.0
+
+debug:
+  decoder_checkpoint: null
+
+plan_config:
+  horizon: 5
+  receding_horizon: 5
+  action_block: 5
+  use_past_context: true
+
+world:
+  env_name: ${task.env_name}
+  num_envs: ${eval.num_eval}
+  max_episode_steps: 200
+  history_size: 3
+  frame_skip: 5
+  env_type: single
+  ob_type: states
+  multiview: false
+  width: 224
+  height: 224
+  visualize_info: false
+  terminate_at_goal: true
+
+dataset:
+  stats: ${task.dataset_stats}
+  keys_to_cache:
+    - action
+
+full: true
+
+eval:
+  num_eval: ${task.num_eval}
+  eval_budget: ${task.eval_budget}
+  dataset_name: ${task.dataset_name}
+  goal_offset_steps: ${task.goal_offset_steps}
+  debug_video: false
+  init_from_gt: false
+  start_offset: 5        # unify all baselines at train-distribution init
+  img_size: 224
+  callables:
+    - method: set_state
+      args:
+        qpos:
+          value: qpos
+        qvel:
+          value: qvel
+    - method: set_target_pos
+      args:
+        cube_id:
+          value: 0
+          in_dataset: false
+        target_pos:
+          value: goal_privileged_block_0_pos
+        target_quat:
+          value: goal_privileged_block_0_quat

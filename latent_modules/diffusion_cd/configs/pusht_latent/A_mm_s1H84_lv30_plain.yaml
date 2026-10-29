@@ -1,0 +1,34 @@
+# A_mm_s1H84_lv30_plain — pushT(plain) frame-resolution DTG, mirroring the cube cell
+# configs/cube_latent/A_mm_s1H84_lv30.yaml that produced the +8pp cube generator.
+#
+# 🔴 Needs the PATCHED clone: CD_ROOT=prj/cleandiffuser-h84 (stock chiunet.py:140 asserts 2^n
+#    and rejects H=84).  84 % 4 == 0 satisfies the two Downsample1d.
+# 🔴 train_latent_velloss.py hardcodes config_path=../configs/cube_latent, so this file is only
+#    reachable with an explicit  --config-path ../configs/pusht_latent  on the CLI.
+#
+# FORCED vs A_mm.yaml (identical deltas to the cube cell):
+#   stride  5 -> 1     the experiment
+#   horizon 16 -> 84   span (H-1)*s = 83 env-steps  (was (16-1)*5 = 75)
+#   history 2 -> 6     conditioning span (K-1)*s = 5 env-steps — UNCHANGED from champion
+#   save_freq 10000 -> 2000   so the val minimum is actually checkpointed
+#     (the published A_mm_park_plain used model_final.pt — see feedback_dtg_050_overfit)
+# UNCHANGED: h5 (per-env-frame latents, 192-d), padding_mode, batch, lr, ema, model_dim,
+#   diffusion_steps, lambda_vel.
+defaults:
+  - base
+  - _self_
+
+nn: chi_unet
+predict_noise: false
+normalizer_kind: minmax
+x_clip: true
+x_clip_abs: 1.0
+
+h5_path: ${oc.env:STABLEWM_HOME}/pusht/latents/expert_slow_025_n200_centered_v2_park_latents_lewm.h5
+
+stride: 1
+horizon: 84
+history: 6
+lambda_vel: 3.0
+save_freq: 2000
+exp_name: A_mm_s1H84_lv30_plain_${now:%Y%m%d_%H%M%S}

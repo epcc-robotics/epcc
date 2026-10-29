@@ -1,0 +1,13 @@
+# @package _global_
+# Fig. 4, point DEMO.
+# Published run: findings/261022_fig4_cold/runs/fig_expert_play/f4c_plain_DEMO (Hydra record logs_smoke/hydra/f4c_plain_DEMO_14304520).
+# Base recipe: config/eval/cells/pusht_dtg_mpcc_warm.yaml; the keys below are that run's command-line overrides,
+# machine paths rewritten to ${cache_dir} (= $STABLEWM_HOME). Generated 2026-10-27; do not edit by hand.
+defaults:
+  - ../../pusht_dtg_mpcc_warm
+  - _self_
+diffusion: {ckpt_path: '${cache_dir}/checkpoints/dtg/pusht_s1H84_lv30/models/model_100000.pt'}
+task: {policy_config_group: f4cold/plain_DEMO, dataset_stats: expert_slow_025_n200_centered_v2_park}
+solver:
+  inner_solver:
+    action_clamp: [15.9755, 16.5069]

@@ -1,0 +1,82 @@
+[
+ {
+  "path": "datasets/pusht_expert_train_excised.h5",
+  "c": 1.0,
+  "name": "O_excised"
+ },
+ {
+  "path": "bset/pusht/pusht_bset_k1_r0.h5",
+  "c": 0.25,
+  "name": "B_k1_r0"
+ },
+ {
+  "path": "bset/pusht/pusht_bset_k1_r1.h5",
+  "c": 0.25,
+  "name": "B_k1_r1"
+ },
+ {
+  "path": "bset/pusht/pusht_bset_k1_r2.h5",
+  "c": 0.25,
+  "name": "B_k1_r2"
+ },
+ {
+  "path": "bset/pusht/pusht_bset_k2_r0.h5",
+  "c": 0.5,
+  "name": "B_k2_r0"
+ },
+ {
+  "path": "bset/pusht/pusht_bset_k2_r1.h5",
+  "c": 0.5,
+  "name": "B_k2_r1"
+ },
+ {
+  "path": "bset/pusht/pusht_bset_k2_r2.h5",
+  "c": 0.5,
+  "name": "B_k2_r2"
+ },
+ {
+  "path": "bset/pusht/pusht_bset_k3_r0.h5",
+  "c": 0.75,
+  "name": "B_k3_r0"
+ },
+ {
+  "path": "bset/pusht/pusht_bset_k3_r1.h5",
+  "c": 0.75,
+  "name": "B_k3_r1"
+ },
+ {
+  "path": "bset/pusht/pusht_bset_k3_r2.h5",
+  "c": 0.75,
+  "name": "B_k3_r2"
+ },
+ {
+  "path": "bset/pusht/pusht_bset_k4_r0.h5",
+  "c": 1.0,
+  "name": "B_k4_r0"
+ },
+ {
+  "path": "bset/pusht/pusht_bset_k4_r1.h5",
+  "c": 1.0,
+  "name": "B_k4_r1"
+ },
+ {
+  "path": "bset/pusht/pusht_bset_k4_r2.h5",
+  "c": 1.0,
+  "name": "B_k4_r2"
+ },
+ {
+  "path": "bset/pusht/pusht_bset_k5_r0.h5",
+  "c": 1.25,
+  "name": "B_k5_r0"
+ },
+ {
+  "path": "bset/pusht/pusht_bset_k5_r1.h5",
+  "c": 1.25,
+  "name": "B_k5_r1"
+ },
+ {
+  "path": "bset/pusht/pusht_bset_k5_r2.h5",
+  "c": 1.25,
+  "name": "B_k5_r2"
+ }
+]

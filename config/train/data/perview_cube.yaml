@@ -1,0 +1,23 @@
+dataset:
+  # Per-view cube dataset — same h5 as multiview, plus proprio + grasp-label columns.
+  name: Multiview WM/cube_multiview_WM
+  num_steps: ${eval:'${wm.num_preds} + ${wm.history_size}'}
+  frameskip: 5
+  keys_to_load:
+    - pixels
+    - wrist_pixels
+    - action
+    - observation
+    # Proprio token inputs (gripper width + effector pos = 4-dim)
+    - proprio_gripper_opening
+    - proprio_effector_pos
+    # Grasp aux head label inputs (contact + cube_pos for distance check)
+    - proprio_gripper_contact
+    - privileged_block_0_pos
+  keys_to_cache:
+    - action
+    - observation
+    - proprio_gripper_opening
+    - proprio_effector_pos
+    - proprio_gripper_contact
+    - privileged_block_0_pos

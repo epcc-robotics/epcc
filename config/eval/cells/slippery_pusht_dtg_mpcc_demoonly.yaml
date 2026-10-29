@@ -1,0 +1,64 @@
+# @package _global_
+# EXPERIMENT 6 (slippery cell) — WM trained on DEMOS ONLY, everything else champion.
+#
+#   champion:  slippery WM on play corpus v1  -> 84%  (logs_sh_repro_park/slippery_pusht_dtg_mpcc_park)
+#   this cell: slippery WM on demos (park) only
+#
+# Three overrides are REQUIRED and are not experimental choices:
+#
+# 1. policy_config_group -> the demo-only WM. The symlink under checkpoints/ is
+#    created by scripts/experiments/eval/deploy_exp6_eval.sh, because
+#    policy_config_group resolves as checkpoints/<group>_object.ckpt and the
+#    training run writes to $STABLEWM_HOME/<subdir>/ instead.
+#
+# 2. dataset.stats -> the demo set. The CEM works in NORMALIZED action space and
+#    the scaler comes from `dataset.stats` (eval_mpc_multiview.py:1251-1271),
+#    while the WM's action_encoder was trained under the normalizer fitted on
+#    ITS training set (train.py:183). Leaving champion stats here would feed the
+#    demo-trained WM actions ~2.5x smaller than it expects (std 0.198 vs 0.079).
+#
+# 3. action_clamp -> rescaled. The clamp is a bound in that same normalized
+#    space, so keeping the champion's literal 5.0528 under the demo scaler would
+#    cap the physical action at 5.0528*0.0789 = 0.40, i.e. 40% of the champion's
+#    reach — the cell would be slower for a reason unrelated to the hypothesis.
+#    Rescaled as C_demo = C_champ * std_champ / std_demo, which preserves the
+#    reachable HALF-WIDTH exactly:
+#        champion: -0.00219 +/- 5.0528*0.197477 = [-1.0000, +0.9956]
+#        here    : -0.00017 +/- 12.6481*0.07889 = [-0.9980, +0.9976]
+#    (env = z*std + mean, so the interval is centred on mean, not 0. Both means
+#    are <0.5% of the half-width here, so the symmetric bound is faithful. See
+#    memory feedback_action_normalization_pipeline.)
+#
+# The DTG is the champion's park model, UNCHANGED: exp 6 varies the WM only, and
+# the reference stays valid because the demo-only WM reuses the champion's
+# FROZEN encoder, so both live in the same 192-d space.
+#
+# world.max_episode_steps / eval.save_traj are pinned to what the champion run
+# actually used (its meta.json), not to what the base file resolves to.
+#
+defaults:
+  - slippery_pusht_dtg_mpcc
+  - _self_
+
+output:
+  run_name: slippery_pusht_dtg_mpcc_demoonly_n50
+  logdir_subkey: slippery_pusht_dtg_mpcc_demoonly
+
+task:
+  policy_config_group: wm_demoonly/slippery_park
+
+dataset:
+  stats: slippery_pusht/data/expert_slow_050_n200_d035_park
+
+solver:
+  inner_solver:
+    action_clamp: [12.6481, 12.9347]
+
+diffusion:
+  ckpt_path: ${cache_dir}/checkpoints/dtg/slippery_pusht_s1H84_lv30/models/model_24000.pt
+
+world:
+  max_episode_steps: 1188
+
+eval:
+  save_traj: true

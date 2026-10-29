@@ -1,0 +1,44 @@
+_target_: latent_modules.mpc.MPCSolver
+_recursive_: false
+inner_solver:
+  _target_: stable_worldmodel.solver.CEMSolver
+  batch_size: 1
+  num_samples: 300
+  var_scale: 1.0
+  n_steps: 30
+  topk: 30
+  device: "cuda"
+  seed: ${seed}
+cost_weights:
+  tracking: 1.0
+  terminal: 0.0
+  action: 0.01
+  # Temporal-smoothness penalty Σ‖a_{t+1}-a_t‖² over all phys dims.
+  # Matches MPCC cell-level overrides; turns terminal-only CEM (pusht_wm_full)
+  # from jerky into a robust baseline. Override per-cell if you need 0.
+  action_smooth: 1.0
+  action_smooth_all_dims: true
+  distance: l2  # l2 | cosine | l2_normalized
+  # Density-proxy OOD penalty (p(a|z), conformal-calibrated). Disabled by default
+  # → bit-exact baseline. Enable + point npz/meta at a train_density_proxy.py
+  # artifact; cost += lambda·max(0, score − q). q from artifact unless overridden.
+  density:
+    enable: false
+    npz: null
+    meta: null
+    lambda: 1.0
+    q: null
+  # Ensemble-JRD OOD penalty (UNISafe port). Disabled by default. Enable + point
+  # ckpt/meta at a train_ensemble_predictor.py + eval_ensemble_proxy.py artifact;
+  # cost += lambda·Σ_t max(0, JRD_t − eps). eps from deploy meta unless overridden.
+  ensemble:
+    enable: false
+    ckpt: null
+    meta: null
+    lambda: 1.0
+    eps: null
+reference:
+  episode_idx: 0
+  dataset_name: ${eval.dataset_name}
+  img_size: 224
+  chunk_size: 64

@@ -1,0 +1,16 @@
+# @package _global_
+# Table I, EPCC (ours).
+# Published run: findings/260907_final_dtg_s1_warm/runs/table1/t1_cube_M2_s1warm (Hydra record logs_smoke/hydra/agg_cubeM2_w2nu143_h84_lv3_34k_WARM_n50_12904895).
+# Base recipe: config/eval/cells/cube_dtg_mpcc_warm.yaml; the keys below are that run's command-line overrides,
+# machine paths rewritten to ${cache_dir} (= $STABLEWM_HOME). Generated 2026-10-27; do not edit by hand.
+defaults:
+  - ../../cube_dtg_mpcc_warm
+  - _self_
+diffusion: {ckpt_path: '${cache_dir}/checkpoints/dtg/cube_s1H84_lv30/models/model_34000.pt'}
+solver:
+  reference: {stride: 1}
+  inner_solver:
+    action_clamp: [5.741, 3.6608, 2.9672, 3.7504, 2.777]
+    env_clip_range: [-2.0, 2.0]
+    nu_clamp: [0.0, 1.43]
+task: {policy_config_group: agg_cubeM2, dataset_stats: agg_cube_main2}

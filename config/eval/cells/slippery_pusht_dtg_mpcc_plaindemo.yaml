@@ -1,0 +1,52 @@
+# @package _global_
+# EXPERIMENT 1 — geometry from PLAIN demos, dynamics from slippery play.
+#
+#   champion (Table row):  slippery demos (park) -> DTG -> slippery WM  = 84%
+#   this cell:             PLAIN    demos (park) -> DTG -> slippery WM  = ?
+#                          ^^^^^ the only variable that changes
+#
+# The WM, the solver constants, the CEM scaler, the action clamp and the eval
+# init set are all inherited unchanged from slippery_pusht_dtg_mpcc. The plain
+# demos were re-encoded with the SLIPPERY encoder (job 11582093) before the DTG
+# was trained (job 11582218), so nothing here mixes latent spaces — see
+# datasets/slippery_pusht/data/latent/PROVENANCE_*_lewm_slipbase.md.
+#
+# ─── why these two lines are restated even though the base "already has" them ──
+# The champion's 84% was NOT produced by the base file as committed. Its
+# meta.json (findings/.../logs_sh_repro_park/slippery_pusht_dtg_mpcc_park/)
+# shows two settings supplied as runtime overrides:
+#     world.max_episode_steps = 1188   (base file resolves to 594)
+#     eval.save_traj          = true   (absent from the base file)
+# The horizon difference is probably inert — failures in that run cap at
+# first_success_step = 594, so the effective budget was 594 either way — but
+# matching what actually ran is cheaper than arguing about which differences are
+# harmless. Pinning them here means this cell reproduces from the file alone,
+# which the champion's cell does not.
+#
+# Checkpoint choice: model_final.pt, matching the champion. Selecting ours by
+# val while the champion used final would tilt the comparison. It also costs
+# nothing here — val_sample_l2 best 0.0273 @62k vs final 0.0275 (0.7%).
+#
+#   CELL=slippery_pusht_dtg_mpcc_plaindemo LOGS_SUBDIR=logs_exp1 \
+#     RUN_NAME=slip_dtg_plaindemo_n50 sbatch scripts/baseline/run_cell_sh.sbatch
+#
+defaults:
+  - slippery_pusht_dtg_mpcc
+  - _self_
+
+output:
+  run_name: slippery_pusht_dtg_mpcc_plaindemo_n50
+  logdir_subkey: slippery_pusht_dtg_mpcc_plaindemo
+
+# The exp-1 DTG: plain park demos encoded by the slippery base LeWM, then
+# trained with the champion recipe (A_mm, 100k, seed 42). See its PROVENANCE.md.
+diffusion:
+  # Same path form as the base cell (no `checkpoints/` segment) so the diff
+  # against it is exactly one directory name. Both forms reach the same tree.
+  ckpt_path: ${cache_dir}/slippery_pusht/diffusion_cd_v2/pusht_latent_velloss/A_mm_park_plaindemo_slipenc/42/models/model_final.pt
+
+world:
+  max_episode_steps: 1188
+
+eval:
+  save_traj: true

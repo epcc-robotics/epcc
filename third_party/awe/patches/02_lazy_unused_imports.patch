@@ -1,0 +1,31 @@
+--- a/waypoint_extraction/traj_reconstruction.py
++++ b/waypoint_extraction/traj_reconstruction.py
+@@ -1,9 +1,6 @@
+ import numpy as np
+-import wandb
+ from scipy.spatial.transform import Rotation
+ 
+-from utils import put_text, remove_object
+-
+ import robosuite.utils.transform_utils as T
+ 
+ 
+@@ -146,6 +143,10 @@
+     remove_obj=False,
+ ):
+     """Reconstruct the trajectory from a set of waypoints"""
++    # vendored (le_wm): visualisation-only imports kept local; this function is
++    # not used by dp_waypoint_selection(env=None), which is all this repo calls.
++    import wandb
++    from utils import put_text
+     curr_frame = 0
+     pred_states_list = []
+     traj_err_list = []
+@@ -267,6 +268,7 @@
+ 
+ 
+ def reset_env(env, initial_state=None, remove_obj=False):
++    from utils import remove_object  # vendored (le_wm): lazy, unused here
+     # load the initial state
+     if initial_state is not None:
+         env.reset_to(initial_state)

@@ -1,0 +1,6 @@
+# @package policy
+# EPCC-5 candidate-library DTG-MPCC (SELECT / seeded rows) with the first-replan history
+# ring seeded from real frames. Needs a top-level `warm_ring:` block (see
+# pusht_dtg_mpcc_warm.yaml / cube_dtg_mpcc_warm.yaml) and the usual `+candidates=<task>_h128`
+# + CandidateCEMSolver overrides. See policy/dtg_mpcc_cand_warm.py.
+_target_: policy.dtg_mpcc_cand_warm.DTGMPCCCandidateWarmPolicy

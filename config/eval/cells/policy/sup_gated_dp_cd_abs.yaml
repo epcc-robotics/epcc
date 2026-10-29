@@ -1,0 +1,51 @@
+# @package policy
+# SuP gate over a CleanDiffuser DP that emits ABSOLUTE agent waypoints.
+# Backbone args mirror `policy/dp.yaml` (same DPPolicy parent); only the
+# _target_ and the `sup` block differ.
+#
+# The DP-repo variant this replaces lived in baseline_corl_v2 and pointed at a
+# robomimic checkpoint. Slippery was moved onto CleanDiffuser while keeping the
+# absolute action abstraction, so the gate moved with it (policy/sup_gated_dp_cd_abs.py,
+# a mirror; the original files are untouched).
+#
+# score_mode=none + fixed_k=1 is bit-exact base DP, which is how the plain
+# "Slippery DP (absolute)" table row is produced — no separate policy class.
+_target_: policy.sup_gated_dp_cd_abs.SuPGatedDPCDAbsPolicy
+
+ckpt_path: ${diffusion.ckpt_path}
+train_h5_path: ${diffusion.train_h5_path}
+action_dim: ${diffusion.action_dim}
+action_horizon: ${diffusion.horizon}
+action_steps: ${diffusion.action_steps}
+obs_steps: ${diffusion.obs_steps}
+image_size: ${diffusion.image_size}
+n_views: ${diffusion.n_views}
+crop_shape: ${diffusion.crop_shape}
+sample_steps: ${diffusion.sample_steps}
+use_group_norm: ${diffusion.use_group_norm}
+use_seq: ${diffusion.use_seq}
+nn: ${diffusion.nn}
+
+sup:
+  enabled: true
+  score_mode: state_adm_iql      # none -> fixed_k ; state_adm -> greedy gate
+  fixed_k: 1
+  channel: full                  # robot = faithful SuP | full = ours (+object)
+  k_values: [1, 2, 3, 4, 5, 6]
+  eps: 5.0                       # only read when score_mode=state_adm
+  # decimate-abs == accumulate-delta, so the accumulate-trained ADM is correct
+  # here; the class sets downsample_mode itself and must not be overridden.
+  #
+  # waypoint_scale: px per corpus action unit, used to convert the absolute
+  #   chunk into the delta units the gate scores in. Demo-fitted 39.96,
+  #   re-measured 39.880 (corr 0.995) on 80k frames.
+  # env_action_scale: px per unit ENV action. This is env.action_scale = 100
+  #   exactly (envs/pusht/env.py:65, :360 `action = pos + action * 100`), NOT a
+  #   damping gain — an earlier note claiming ~40 conflated it with the achieved
+  #   per-step displacement. Closed-loop tracking with 100 converges: a 120 px
+  #   error falls to 0.14 px in 10 control steps (job 11602468).
+  waypoint_scale: 39.96
+  env_action_scale: 100.0
+  adm_path: ${cache_dir}/slippery_pusht/sup/adm_B.pt
+  iql_path: ${cache_dir}/slippery_pusht/sup/iql_full_park.pt
+  log_decisions: true

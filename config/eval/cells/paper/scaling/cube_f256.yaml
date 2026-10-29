@@ -1,0 +1,17 @@
+# @package _global_
+# Appendix data scaling, f256.
+# Published run: findings/261001_scaling/runs/pilot_cube/ev_cube_f256 (Hydra record logs_smoke/hydra/ev_cube_f256_13825035).
+# Base recipe: config/eval/cells/cube_dtg_mpcc_warm.yaml; the keys below are that run's command-line overrides,
+# machine paths rewritten to ${cache_dir} (= $STABLEWM_HOME). Generated 2026-10-27; do not edit by hand.
+defaults:
+  - ../../cube_dtg_mpcc_warm
+  - _self_
+eval: {save_traj: true}
+solver:
+  reference: {stride: 1}
+  inner_solver:
+    action_clamp: [5.9323, 3.6753, 2.864, 3.7711, 2.3276]
+    env_clip_range: [-2.0, 2.0]
+    nu_clamp: [0.0, 1.43]
+task: {policy_config_group: scaling/cube_f256, dataset_stats: scaling/cube/cube_main2_f256}
+diffusion: {ckpt_path: '${cache_dir}/checkpoints/dtg/cube_s1H84_lv30/models/model_34000.pt'}

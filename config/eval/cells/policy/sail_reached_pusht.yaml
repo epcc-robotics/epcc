@@ -1,0 +1,58 @@
+# @package policy
+# Proper SAIL (paper §4.2 + §4.3) for the PushT family.
+#
+# Mirrors baseline_corl_v2/policy/sail_reached.yaml (cube) with the three things
+# that are task-specific replaced:
+#
+#   _target_               ReachedPoseSAILPolicy reads the live pose from
+#                          env._data.site_xpos[_pinch_site_id] and imports
+#                          ogbench.manipspace.lie — MuJoCo only. The PushT
+#                          subclass reads env.agent.position instead.
+#   env_action_dim  5 -> 2 PushT has no z, no yaw, no gripper.
+#   base timesteps         PushT runs 1/control_hz = 0.1 s control and dt = 0.01 s
+#                          physics, against ManipSpace's 0.05 / 0.002. Leaving
+#                          cube's values here would silently rescale every k in
+#                          the sweep.
+#
+# The inner DP emits 3-D [x, y, precision]. The precision column is required
+# even when use_precision=false: policy/sail.py:239 checks
+# `action.shape[-1] == env_action_dim + 1` unconditionally.
+#
+# use_precision defaults to FALSE here so a bare run of this cell keeps
+# measuring §4.2 (reached-pose tracking), the load-bearing arm, and so the
+# archived 45-cell AWE-OFF sweep stays the default. AWE=true comes from the
+# sweep script.
+#
+# The old reason for that default was that the scheduler was INERT: the note
+# here (and scripts/sail/README "caveats") said 50 phase-desynced envs share
+# one control_timestep so the majority vote never flips. The sharing claim was
+# wrong — the eval builds a SyncVectorEnv of in-process objects and
+# _apply_timesteps writes per-instance attributes. What was actually inert was
+# the vote itself: precision frames are 14.2% (plain) / 25.9% (slippery) of the
+# labels, never the >=50% the vote needs. precision_mode=per_env removes the
+# vote and gives each env its own rate; "majority" replays the old behaviour.
+_target_: policy.sail_pusht.ReachedPosePushTSAILPolicy
+fast_dt_factor: 2.5
+slow_dt_factor: 1.0
+base_control_timestep: 0.1
+base_physics_timestep: 0.01
+env_action_dim: 2
+use_precision: false
+precision_threshold: 0.5
+precision_majority: 0.5   # only consulted when precision_mode=majority
+precision_mode: per_env
+inner:
+  _target_: policy.dp.DPPolicy
+  ckpt_path: ${diffusion.ckpt_path}
+  train_h5_path: ${diffusion.train_h5_path}
+  action_dim: ${diffusion.action_dim}    # 3 = absolute xy (2) + precision (1)
+  action_horizon: ${diffusion.horizon}
+  action_steps: ${diffusion.action_steps}
+  obs_steps: ${diffusion.obs_steps}
+  image_size: ${diffusion.image_size}
+  n_views: ${diffusion.n_views}
+  crop_shape: ${diffusion.crop_shape}
+  sample_steps: ${diffusion.sample_steps}
+  use_group_norm: ${diffusion.use_group_norm}
+  use_seq: ${diffusion.use_seq}
+  nn: ${diffusion.nn}

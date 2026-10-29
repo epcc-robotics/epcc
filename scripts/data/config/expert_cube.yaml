@@ -1,0 +1,41 @@
+defaults:
+  - _self_
+
+cache_dir: null  # defaults to $STABLEWM_HOME (~/.stable-wm/)
+
+world:
+  num_envs: 1            # single env: manual loop with reset override
+  max_episode_steps: 500 # slow-expert can take longer than default 200
+  image_shape: [224, 224]
+
+seed: 3072
+# Slowdown factor: c in (0, 1]. 0.3 matches existing cube_single_expert_c0.3.
+slowdown_factor: 0.5
+num_traj: 100
+action_noise: 0.0
+
+# ---------- Fixed-goal + constrained-init layout ----------
+# Workspace is x in [0.30, 0.55], y in [-0.30, 0.30], z=0.02 (table).
+# "Left half" (init) = y < 0. "Right half" (goal) = y > 0.
+init_bounds:
+  x_low:  0.30
+  x_high: 0.55
+  y_low: -0.30
+  y_high:  0.00
+goal_xyz: [0.425, 0.15, 0.02]
+
+# Output dataset name (under cache_dir)
+dataset_name: cube/expert_demo_${slowdown_factor}
+
+mode: collect  # collect | validate
+debug_cube: false
+
+# ---- validate mode: c-sweep TTC / success-rate check ----
+c_sweep: [1.0, 0.8, 0.6, 0.4, 0.3, 0.2, 0.1]
+n_val_episodes: 50
+
+# ---- validate-mode video recording ----
+# If true, for each c<1.0 record a side-by-side mp4:
+#   D_WM (c=1.0, noise=0.1) vs D_e (c=given, clean).
+# Matches collect_expert_scene.py convention.
+save_video: false

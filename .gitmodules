@@ -1,0 +1,9 @@
+[submodule "third_party/stable_worldmodel"]
+	path = third_party/stable_worldmodel
+	url = https://github.com/epcc-robotics/stable-worldmodel-srl.git
+	branch = epcc-release
+	shallow = true
+[submodule "third_party/cleandiffuser"]
+	path = third_party/cleandiffuser
+	url = https://github.com/epcc-robotics/CleanDiffuser.git
+	branch = epcc-release

@@ -1,0 +1,15 @@
+# @package _global_
+# Appendix data scaling, f256.
+# Published run: findings/261001_scaling/runs/pilot_slippery/ev_slippery_f256 (Hydra record logs_smoke/hydra/ev_slippery_f256_13824526).
+# Base recipe: config/eval/cells/slippery_pusht_dtg_mpcc_warm.yaml; the keys below are that run's command-line overrides,
+# machine paths rewritten to ${cache_dir} (= $STABLEWM_HOME). Generated 2026-10-27; do not edit by hand.
+defaults:
+  - ../../slippery_pusht_dtg_mpcc_warm
+  - _self_
+task: {policy_config_group: scaling/slippery_f256, dataset_stats: scaling/slippery/slippery_main2_f256}
+solver:
+  inner_solver:
+    action_clamp: [4.9053, 5.0581]
+    nu_clamp: [0.0, 1.5]
+  cost_weights: {action_smooth: 1.0}
+diffusion: {ckpt_path: '${cache_dir}/checkpoints/dtg/slippery_pusht_s1H84_lv30/models/model_24000.pt'}

@@ -1,0 +1,12 @@
+# A_mm — ChiUNet1d + x0_pred + lvel=3.0 + MinMaxNormalizer + x_clip=1
+defaults:
+  - base
+  - _self_
+
+nn: chi_unet
+horizon: 16
+predict_noise: false
+normalizer_kind: minmax
+x_clip: true
+x_clip_abs: 1.0
+exp_name: A_mm_chiunet_x0_minmax_${now:%Y%m%d_%H%M%S}

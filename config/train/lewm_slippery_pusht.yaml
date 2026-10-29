@@ -1,0 +1,86 @@
+# lewm_slippery_pusht.yaml — LeWM training config for the slippery PushT corpus.
+#
+# Fork of lewm.yaml with:
+#   - data: slippery_pusht  (merged play + expert WM corpus)
+#   - output_model_name: lewm_slippery_d035
+#   - wandb name scoped to the slippery run to avoid collision with sticky LeWM
+#
+# Self-contained: all keys from lewm.yaml are re-declared here so nested
+# inheritance fragility (hydra version differences) is avoided.
+
+defaults:
+  - _self_
+  - data: slippery_pusht
+
+output_model_name: lewm_slippery_d035
+subdir: ${hydra:job.id}
+
+num_workers: 6
+train_split: 0.9
+seed: 3072
+img_size: 224
+patch_size: 14
+encoder_scale: tiny
+dump_object: True
+
+trainer:
+  max_epochs: 100
+  devices: auto
+  accelerator: gpu
+  precision: bf16
+  gradient_clip_val: 1.0
+
+loader:
+  batch_size: 128
+  num_workers: ${num_workers}
+  persistent_workers: True
+  prefetch_factor: 3
+  pin_memory: True
+
+optimizer:
+  type: AdamW
+  lr: 5e-5
+  weight_decay: 1e-3
+
+wandb:
+  enabled: True
+  config:
+    project: lewm-reproduce
+    name: ${output_model_name}
+    id: ${subdir}
+    resume: allow
+    log_model: False
+
+wm:
+  type: lewm
+  history_size: 3
+  num_preds: 1
+  embed_dim: 192
+
+predictor:
+  depth: 6
+  heads: 16
+  mlp_dim: 2048
+  dim_head: 64
+  dropout: 0.1
+  emb_dropout: 0.0
+
+loss:
+  sigreg:
+    weight: 0.09
+    kwargs:
+      knots: 17
+      num_proj: 1024
+
+# Production launch (run AFTER merged corpus exists at the path below):
+#
+#   # 1. Build the merged corpus (if not already done):
+#   #      python scripts/data/concat_wm_corpus.py \
+#   #          --out ${oc.env:STABLEWM_HOME}/slippery_pusht/data/datasets/slippery_pusht_wm_corpus.h5
+#   #
+#   # 2. Verify the corpus:
+#   #      ls -lh ${oc.env:STABLEWM_HOME}/slippery_pusht/data/datasets/slippery_pusht_wm_corpus.h5
+#   #
+#   # 3. Launch training:
+#   MUJOCO_GL=egl .venv/bin/python stable-worldmodel-srl/scripts/train/lewm.py \
+#       --config-name lewm_slippery_pusht

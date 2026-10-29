@@ -1,0 +1,60 @@
+*.pt
+__pycache__/
+*.egg-info/
+env
+assets/leWM.pdf
+findings/*
+lewm-reproduce/*
+wandb/*
+outputs/*
+**/outputs/
+#
+.env
+.venv_dp/
+.omc/*
+**/.omc/
+AGENTS.md
+lightning_logs/*
+checkpoints/*
+diffusion_policy_repro/*
+!diffusion_policy_repro/handoff.md
+.claude/*
+!.claude/skills/
+progress.txt
+logs_smoke/
+command.sh
+
+# curation 2026-06-28: untracked artifacts + env/req snapshots (not for commit)
+lewm-slippery-v2/
+ckpts/
+diag_clean_strips/
+diag_cleanplay/
+environment*.json
+requirements_frozen*.txt
+.gstack/
+
+# curation 2026-07-29: SLURM artefacts from the dist-shift collection campaign
+# (.out/.err/.log/.mp4 + generated per-cell sbatch/hydra snapshots)
+logs_dist_shift_collect/
+
+# backup 2026-10-27: WM training run dirs (Lightning ckpts), website staging media, plots, slurm logs
+*.ckpt
+/lewm-exp6-demoonly/
+/lewm-scaling/
+/lewm-perview-cube/
+/lewm-fig4-cold/
+/epcc_website/*
+!/epcc_website/scripts/
+/epcc_website/scripts/logs/
+!/epcc_website/paper-to-website-handover.md
+/figures/
+/figures_epcc5h/
+/figures_style_smoke/
+/slurm-*.out
+
+# publish 2026-10-27: site settings and local run outputs
+cluster.env
+/logs/*
+!/logs/.gitkeep
+/results/
+.venv/

@@ -1,0 +1,161 @@
+defaults:
+  - _self_
+  - data: perview_cube
+
+output_model_name: lewm_pv_cube
+subdir: ${hydra:job.id}
+
+num_workers: 6
+train_split: 0.9
+seed: 3072
+img_size: 224
+patch_size: 14
+encoder_scale: tiny
+dump_object: True
+
+trainer:
+  max_epochs: 100
+  devices: auto
+  accelerator: gpu
+  precision: 32                 # bf16 caused SIGReg NaN spikes; 32 safe on A100
+  gradient_clip_val: 1.0
+
+loader:
+  batch_size: 128
+  num_workers: ${num_workers}
+  persistent_workers: True
+  prefetch_factor: 3
+  pin_memory: True
+
+optimizer:
+  type: AdamW
+  lr: 5e-5                      # base LR; per-module multipliers below
+  weight_decay: 1e-3
+
+# -------------------------------------------------------------------------
+# Per-module LR multipliers (applied via parameter groups, not optimizer LR)
+# Multiplied against `optimizer.lr` to get effective LR per module group.
+# -------------------------------------------------------------------------
+lr_groups:
+  encoder: 0.1                  # warm-started, gentle
+  projector: 0.3                # warm-started, slightly higher (input dist shifted)
+  pred_proj: 1.0                # scratch
+  action_encoder: 0.1           # warm-started
+  predictor: 1.0                # scratch (pos_emb shape changed)
+  proprio_encoder: 1.0          # scratch
+  grasp_aux_head: 1.0           # scratch
+  view_pos: 1.0
+  time_pos: 1.0
+
+wandb:
+  enabled: True
+  config:
+    project: lewm-perview-cube
+    name: ${output_model_name}
+    id: ${subdir}
+    resume: allow
+    log_model: False
+
+wm:
+  type: lewm_perview
+  history_size: 3
+  num_preds: 1
+  embed_dim: 192
+
+# -------------------------------------------------------------------------
+# Token streams — toggleable. Loss weights only matter if enabled=True.
+# Supported combos: any non-empty subset of {agent, wrist, proprio}.
+# -------------------------------------------------------------------------
+tokens:
+  agent:
+    enabled: true
+    loss_weight: 1.0
+  wrist:
+    enabled: true
+    loss_weight: 1.5            # Decision β: wrist > agent (manipulation prior)
+  proprio:
+    enabled: true
+    loss_weight: 1.5            # boost ⅓ of downstream concat-576 quality
+    # Source columns concatenated → MLP → 192-d
+    source_keys:
+      - proprio_gripper_opening   # (1,)
+      - proprio_effector_pos      # (3,)
+    # Total input dim auto-computed from source_keys at runtime
+
+predictor:
+  depth: 6
+  heads: 16
+  mlp_dim: 2048
+  dim_head: 64
+  dropout: 0.1
+  emb_dropout: 0.0
+
+  # Per-view-token specifics (overrides shared base predictor above)
+  attention_mask: block_causal   # block_causal | strict_causal
+  token_order: interleaved       # interleaved | blocked
+  pos_embedding: factored        # factored (time_pos + view_pos) | flat
+  view_pos_init_scale: 1.0       # 2x dropped: AdaLN handles the symmetry break
+
+  # Action AdaLN: how to inject action conditioning into per-view tokens
+  adaln_mode: view_specific      # view_specific (separate γ/β per view) | duplicated
+
+  # AdaLN gate warmup (0 → 1 over N steps) — stabilizes early training
+  adaln_warmup_steps: 500
+
+# -------------------------------------------------------------------------
+# Loss components
+# -------------------------------------------------------------------------
+loss:
+  sigreg:
+    weight: 0.09
+    per_view: true               # if true: sigreg(A) + sigreg(W) + sigreg(P), summed
+    kwargs:
+      knots: 17
+      num_proj: 1024
+
+# -------------------------------------------------------------------------
+# Auxiliary heads — additional supervision beyond pred + sigreg
+# -------------------------------------------------------------------------
+aux_heads:
+  grasp:
+    enabled: true
+    weight: 0.1                  # multiplied against base BCE loss
+    # Source: which token's RAW ENCODER OUTPUT (cls_emb) feeds the aux head.
+    # MUST be 'wrist' to avoid proprio-leakage via predictor attention (see review).
+    # NOTE: aux head reads `cls_emb`, NOT `predicted_emb`.
+    source_view: wrist
+    head_hidden_dim: 64
+    # Label definition (computed on-the-fly in dataloader transform or model)
+    label:
+      contact_key: proprio_gripper_contact
+      contact_threshold: 0.5
+      proximity_pair: [proprio_effector_pos, privileged_block_0_pos]
+      proximity_threshold: 0.05
+    # Class imbalance handling — measured by scan_grasp_stats.py
+    pos_weight: 1.55              # cube: ~39% positive, near balanced
+
+# -------------------------------------------------------------------------
+# Interface — what info['emb'] looks like to downstream consumers (MPC etc.)
+# -------------------------------------------------------------------------
+interface:
+  emb_layout: concat              # concat = [A; W; P] → (B, T, 192*n_views)
+                                  # alternative: 'agent_only' for backward compat
+
+# -------------------------------------------------------------------------
+# Warm-start — load specific modules from existing MV checkpoint
+# Set ckpt_path to '' (empty) to disable warm-start entirely (full scratch).
+# -------------------------------------------------------------------------
+warmstart:
+  ckpt_path: ${oc.env:STABLEWM_HOME}/checkpoints/cube_wm/lewm_mv_cube_weights.ckpt
+  modules:
+    encoder: true                # ViT (weight-tied for A and W)
+    projector: true              # 768→192 MLP (warm-start, see review)
+    action_encoder: true         # action embedder
+    pred_proj: false             # scratch (predictor output proj — predictor changes)
+    predictor: false             # scratch (pos_emb shape changed)
+    # Following are per-view-only modules (don't exist in MV ckpt anyway)
+    view_fuser: false            # dropped entirely
+    proprio_encoder: false       # scratch (didn't exist)
+    grasp_aux_head: false        # scratch (didn't exist)
+    view_pos: false              # scratch (new)
+    time_pos: false              # scratch (new shape)

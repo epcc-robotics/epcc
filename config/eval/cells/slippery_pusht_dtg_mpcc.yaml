@@ -1,0 +1,138 @@
+# @package _global_
+# In-process SLIPPERY-PushT DTG-MPCC via the v2 unified eval loop.
+#
+# Built from the TUNED 62% GT-MPCC champion (mpcc_clean_nucap12_n50) + the
+# GT->DTG delta. The champion recipe (scr20 WM, corpus_v2, ns300/var0.2/iter30/
+# rh1/topk30, asm3, nu_clamp[0,1.2], c0.55) is applied directly here.
+#
+# GT->DTG delta (mirrors plain pusht_dtg_mpcc):
+#   1. /policy: gt_mpcc -> dtg_mpcc  (DTGMPCCPolicy; self-dispatch via is_cleandiffuser_ckpt)
+#   2. drop policy.legacy_policy_cls (DTG picks the inner WM class itself)
+#   3. add diffusion.ckpt_path        (DTG generates its own latent reference)
+#   4. add solver.reference.stride: 5 (match the diffusion 5-step chunk)
+#   5. eval.dataset_name = the DTG's TRAINING set (here only supplies INIT states;
+#      DTG generates the goal-reaching ref, so tail content of the dataset is moot)
+#
+# ╔═══ WM <-> DIFFUSION <-> v2-CORRECTION TRIO (MUST MATCH) ════════════════════╗
+#  The diffusion was trained on latents from ONE WM, so policy_config_group MUST
+#  be that WM. AND v2-scratch WMs (scr/aux, trained on corpus_v2) require the v2
+#  scaler+clamp; the v1 WM (base/lewm) requires the v1 scaler+clamp. Switching
+#  encoder = change ALL of {policy_config_group, dataset.stats, action_clamp,
+#  diffusion.ckpt_path} together:
+#
+# diffusion ckpt = val_sample_l2-selected best (100k train done 2026-06-25):
+#   scr20 sl2 0.0572 @final | auxall20 sl2 0.0569 @20k (overfits after) | base sl2 0.0653 @final
+#   DEFAULT scr20 (v2): policy_config_group: slippery_pusht/lewm_v2scr_e20
+#                       dataset.stats:        slippery_pusht/data/slippery_pusht_wm_corpus_v2
+#                       action_clamp:         [2.9218, 2.9377]
+#                       diffusion:            A_mm_slip_scr20/42/models/model_final.pt
+#   auxall20    (v2): policy_config_group: slippery_pusht/lewm_v2scr_auxall_e20
+#                       dataset.stats:        slippery_pusht/data/slippery_pusht_wm_corpus_v2
+#                       action_clamp:         [2.9218, 2.9377]
+#                       diffusion:            A_mm_slip_auxall20/42/models/model_20000.pt  (NOT final — overfit)
+#   base        (v1): policy_config_group: slippery_pusht/lewm
+#                       dataset.stats:        slippery_pusht/data/slippery_pusht_wm_corpus
+#                       action_clamp:         [5.0528, 5.2017]
+#                       diffusion:            A_mm_slip_base/42/models/model_final.pt
+# ╚════════════════════════════════════════════════════════════════════════════╝
+defaults:
+  - /task: pusht
+  - /policy: dtg_mpcc             # ← was gt_mpcc
+  - /solver: mpcc_pusht
+  - _self_
+
+seed: 42
+cache_dir: ${oc.env:STABLEWM_HOME}
+
+output:
+  run_name: slippery_pusht_dtg_mpcc_v2_inproc_n50
+  findings_dir: findings/260521_baseline_setup
+  logdir_subkey: slippery_pusht_dtg_mpcc_v2_inproc
+
+task:
+  # WM ckpt — MUST match the diffusion's encoder. DEFAULT = base (lewm), the
+  # highest-SR pairing (82%); this is the plotted/headline cell. (scr20=70%,
+  # auxall20=64% are alternatives via the pairing box below.)
+  policy_config_group: slippery_pusht/lewm
+  # CEM action-scaler corpus. MUST be the WM's OWN training corpus (see dataset.stats
+  # below, which interpolates this). Default = base (lewm) = v1 corpus. Overriding
+  # ++task.policy_config_group WITHOUT ++task.dataset_stats silently mis-scales the
+  # WM input (audited 2026-08-19: 21 slippery fixstats cells hit this).
+  dataset_stats: slippery_pusht/data/slippery_pusht_wm_corpus
+  eval_budget: 594               # d035 max ep_len; full:true extends as needed
+  control_timestep_s: 0.1
+
+# ← NEW (DTG): slippery latent-diffusion ckpt, paired with the WM above (base).
+# DTGMPCCPolicy auto-dispatches via is_cleandiffuser_ckpt(); planner reads
+# normalizer_stats.npz from the same run dir. base model_final = val_sample_l2
+# best (0.0653, monotonic to 100k). See pairing box for per-encoder best ckpts.
+diffusion:
+  ckpt_path: ${cache_dir}/slippery_pusht/diffusion_cd_v2/pusht_latent_velloss/A_mm_slip_base/42/models/model_final.pt
+
+debug:
+  decoder_checkpoint: null
+
+# ─── TUNED champion solver recipe (mpcc_clean_nucap12 levers) ────────────────
+# base is a v1-corpus WM → v1 scaler stats (below) + v1 action_clamp here are
+# MANDATORY (v2 remnants miscalibrate the whole run). topk=30 is the mpcc.yaml
+# default (champion left it untouched).
+solver:
+  inner_solver:
+    num_samples: 300
+    batch_size: ${eval.num_eval}
+    n_steps: 30
+    action_clamp: [5.0528, 5.2017]   # v1 corpus scaler clamp (base WM)
+    var_scale: 0.2                    # champion: narrow CEM (var monotonic — tighter is better)
+    nu_clamp: [0.0, 1.2]             # champion: allow ν up to 1.2 (faster-than-natural pace)
+    nu_init: 0.8
+  reference:
+    c: 0.55                          # champion pace; DTG makes its own ref so c is less critical
+    stride: 5                        # ← NEW: match diffusion 5-step chunk
+  cost_weights:
+    action_smooth: 3                 # champion asm3 (was gt's 1.0)
+    action_smooth_all_dims: true     # slippery-only all-dims smoothing
+
+plan_config:
+  horizon: 5
+  receding_horizon: 1                # ← champion rh1 (was 3)
+  action_block: 5
+  use_past_context: true             # slippery WM trained with H=3 past_action
+
+world:
+  env_name: ${task.env_name}         # swm/PushT-v1
+  num_envs: ${eval.num_eval}
+  max_episode_steps: ${task.eval_budget}
+  history_size: 3                    # WM H=3
+  frame_skip: 1
+  resolution: 224                    # WM trained at 224×224
+  damping: 0.35                      # ← SlipperyPushT friction
+
+dataset:
+  # CEM scaler = the WM's own training corpus, via task.dataset_stats above.
+  # Resolves to ${cache_dir}/datasets/<stats>.h5
+  stats: ${task.dataset_stats}
+  keys_to_cache:
+    - action
+    - proprio
+    - state
+
+full: true
+
+eval:
+  num_eval: ${task.num_eval}
+  eval_budget: ${task.eval_budget}
+  # = the DTG's TRAINING set (supplies per-episode INIT states only; DTG
+  # generates its own goal reference). Resolves to
+  # datasets/slippery_pusht/data/expert_slow_050_n200_d035.h5
+  dataset_name: slippery_pusht/data/expert_slow_050_n200_d035
+  goal_offset_steps: 25
+  debug_video: false
+  start_offset: 5
+  img_size: 224
+  # _set_state only — goal_state forced to PUSHT_FIXED_GOAL by
+  # force_pusht_fixed_goal() in eval_unified.py (do NOT add _set_goal_state).
+  callables:
+    - method: _set_state
+      args:
+        state:
+          value: state

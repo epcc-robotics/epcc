@@ -1,0 +1,34 @@
+# @package _global_
+# Arm B of the friction sweep, damping 0.6 — H84/K6/stride-1 generator + warm ring
+# (2026-09-07 redo of slippery_pusht_dtg_mpcc_fricd060.yaml; see
+# gen_friction_armB_cells_s1warm.sh for what moved and what did not).
+defaults:
+  - ../slippery_pusht_dtg_mpcc
+  - override /policy: dtg_mpcc_warm
+  - _self_
+
+task:
+  policy_config_group: fricd060
+
+dataset:
+  stats: slippery_pusht/data/friction_d060_excised
+
+solver:
+  inner_solver:
+    action_clamp: [5.0010, 5.1975]
+  reference:
+    stride: 1
+
+diffusion:
+  ckpt_path: ${cache_dir}/checkpoints/friction/d060/diffusion_cd_s1H84/pusht_latent_velloss/A_mm_s1H84_plaindemo_fricd060/42/models/selected_val.pt
+
+world:
+  damping: 0.6
+  escapable_block: true
+
+eval:
+  save_traj: true
+
+warm_ring:
+  enabled: true
+  latent_h5: ${cache_dir}/slippery_pusht/data/latent/expert_slow_050_n200_d035_park_latents_lewm_fricd060.h5

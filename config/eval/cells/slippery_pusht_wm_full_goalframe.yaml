@@ -1,0 +1,16 @@
+# @package _global_
+# Play+Goal with a TRUE goal-frame cost: identical to slippery_pusht_wm_full.yaml except
+# policy.goal_frame_only=true, which pins the MPC reference cursor at the demo's last
+# frame so the terminal cost is d(ẑ_T, z_goal) at every replan (the published cell tracks a
+# moving demo waypoint 20 env-steps ahead — see findings/260907_final_dtg_s1_warm/README.md).
+# World model, scaler, CEM, clamps and plan cadence are supplied on the command line so this
+# cell can be matched to the EPCC row it is compared against.
+defaults:
+  - slippery_pusht_wm_full
+  - _self_
+
+policy:
+  goal_frame_only: true
+
+eval:
+  save_traj: true

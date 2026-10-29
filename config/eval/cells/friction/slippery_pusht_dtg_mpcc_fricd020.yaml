@@ -1,0 +1,32 @@
+# @package _global_
+# Arm B of the friction sweep, damping 0.2.
+#
+# Single-variable against the champion in the sense that matters: the DTG
+# reference still comes from PLAIN demos (as in experiment 1), and only the
+# dynamics — and therefore the world model trained on them — change.
+#
+# The four fields below plus world.damping are the ones that must move together
+# when the WM changes; see gen_friction_armB_cells.sh for why each one bites.
+defaults:
+  - ../slippery_pusht_dtg_mpcc
+  - _self_
+
+task:
+  policy_config_group: fricd020
+
+dataset:
+  stats: slippery_pusht/data/friction_d020_excised
+
+solver:
+  inner_solver:
+    action_clamp: [5.0015, 5.1640]
+
+diffusion:
+  ckpt_path: ${cache_dir}/checkpoints/friction/d020/diffusion_cd_v2/pusht_latent_velloss/A_mm_park_plaindemo_fricd020/42/models/selected_val.pt
+
+world:
+  damping: 0.2
+  escapable_block: true
+
+eval:
+  save_traj: true

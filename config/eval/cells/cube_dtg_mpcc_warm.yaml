@@ -1,0 +1,114 @@
+# @package _global_
+# The 82% cell (agg_cubeM2_w2nu143_h84_lv3_34k_n50) re-run with the first-replan history
+# ring seeded from real frames. EVERYTHING else is byte-identical to that run's meta:
+# same world model (agg_cubeM2 / agg_cube_main2), same generator checkpoint, same CEM,
+# same wide guards, same reference, same 50 episodes and seed. The only difference is
+# policy.dtg_mpcc_warm.DTGMPCCWarmPolicy instead of policy.dtg_mpcc.DTGMPCCPolicy.
+#
+# 🔴 The wide guards, the aggregation world model and dataset_stats are supplied on the
+#    command line so this file stays a faithful copy of cube_dtg_mpcc.yaml; see the launch
+#    line in the run note. Do not bake them in here.
+#
+# 🔴 warm_ring.latent_h5 must be the cache built with THIS cell's encoder. agg_cubeM2
+#    warm-starts from pv_aw_cube_scratch_epoch_11 with freeze_encoder: true, so its latent
+#    space is that encoder's — i.e. the AW cache, which is also what this generator was
+#    trained on. A width check catches a 576-d mix-up but NOT an AP/AW mix-up (both 384-d).
+defaults:
+  - /task: cube
+  - /policy: dtg_mpcc_warm
+  - /solver: mpcc_multiview_ensemble
+  - _self_
+
+seed: 42
+cache_dir: ${oc.env:STABLEWM_HOME}
+
+output:
+  run_name: cube_dtg_mpcc_warm_n50
+  findings_dir: findings/260521_baseline_setup
+  logdir_subkey: cube_dtg_mpcc_warm
+
+solver_config: mpcc_multiview_ensemble
+
+diffusion:
+  # MUST be overridden on the command line with the h84 planner this cell reproduces.
+  ckpt_path: ${cache_dir}/PLACEHOLDER_SET_diffusion.ckpt_path_ON_THE_COMMAND_LINE.pt
+
+debug:
+  decoder_checkpoint: null
+
+solver:
+  n_ensemble: 1
+  inner_solver:
+    num_samples: 1000
+    batch_size: 20
+    n_steps: 30
+    nu_init: 0.8                 # my baseline: cube DTG-MPCC nu_init=0.8
+  reference:
+    c: 0.357
+    # Diffusion-MPCC must override the solver default stride=1 so the
+    # reference frame spacing matches the diffusion trajectory frame
+    # stride. Without this the MPCC plans 1 env-step ahead while the
+    # DTG generates a 5-step chunk → 0% SR. See findings/260524 debug.
+    stride: 1
+  cost_weights:
+    action_smooth: 1.0           # renamed from grip_smooth (my generic naming)
+    action_smooth_all_dims: true
+
+plan_config:
+  horizon: 5
+  receding_horizon: 3
+  action_block: 5
+  use_past_context: true
+
+world:
+  env_name: ${task.env_name}
+  num_envs: ${eval.num_eval}
+  max_episode_steps: 200
+  history_size: 3
+  frame_skip: 5
+  env_type: single
+  ob_type: states
+  multiview: false
+  width: 224
+  height: 224
+  visualize_info: false
+  terminate_at_goal: true
+
+dataset:
+  stats: ${task.dataset_stats}
+  keys_to_cache:
+    - action
+
+full: true
+
+eval:
+  num_eval: ${task.num_eval}
+  eval_budget: ${task.eval_budget}
+  dataset_name: ${task.dataset_name}
+  goal_offset_steps: ${task.goal_offset_steps}
+  debug_video: false
+  start_offset: 5
+  save_traj: true        # dump per-step cube/effector/gripper/action for phase segmentation
+  img_size: 224
+  callables:
+    - method: set_state
+      args:
+        qpos:
+          value: qpos
+        qvel:
+          value: qvel
+    - method: set_target_pos
+      args:
+        cube_id:
+          value: 0
+          in_dataset: false
+        target_pos:
+          value: goal_privileged_target_block_pos
+        target_quat:
+          value: goal_privileged_block_0_quat
+
+warm_ring:
+  enabled: true
+  # Overridden per arm on the command line. Default = the AW cache the published h84
+  # generators were trained on, which is also agg_cubeM2's latent space (frozen encoder).
+  latent_h5: ${cache_dir}/cube/latents/cube_multiview_diffusion_aw_c0.3_postpad_fullscale.h5

@@ -1,0 +1,100 @@
+# @package _global_
+# cube_skip via the in-process unified eval loop. SkipPolicy wraps a DPPolicy
+# whose ckpt is the SkiP-relabeled abs-pose DP (trained via CubeAWSkipImageDataset).
+# The DP predicts absolute ee poses (skip -> next-key leap); SkipPolicy turns
+# them into env delta actions. Runs at the default env clock (control_timestep
+# unchanged) — the acceleration is realized by leaps in the env's action space.
+defaults:
+  - /task: cube
+  - /policy: skip
+  - _self_
+
+seed: 42
+cache_dir: ${oc.env:STABLEWM_HOME}
+
+output:
+  run_name: cube_skip_v1_n50
+  findings_dir: findings/260521_baseline_setup
+  logdir_subkey: cube_skip_v1
+
+diffusion:
+  # SkiP-relabeled abs-pose DP — FIXED #6+#11 off-by-one (job 11273560, 100k, all 800 eps).
+  # KEY target now a+1 (=t+2) / decision at anchor a=t+n_obs-1. val_sample_l2 0.026->0.0146.
+  # Old (buggy tgt=t) ckpt for A/B: ...20260716_204248/42/models/model_90000.pt
+  # Prev faithful-#6 ckpt: ...20260719_120943/42/models/model_90000.pt
+  # FAITHFUL PORT (velocity-stop KF + 50/50 restored, stop_frac=0.5), retrain
+  # job 11417703 (2026-07-23), regression check (should stay ~100%).
+  # sibling normalizer_stats.npz (abs-pose) is loaded first by _load_action_minmax.
+  ckpt_path: ${cache_dir}/checkpoints/skip/cube_h16/models/model_final.pt
+  train_h5_path: ${cache_dir}/datasets/cube_multiview_diffusion_c0.3_postpad_fullscale.h5
+  nn: chi_unet
+  horizon: 16
+  obs_steps: 2
+  action_steps: 8
+  action_dim: 5
+  image_size: 96
+  n_views: 2
+  crop_shape: [84, 84]
+  sample_steps: 50
+  use_group_norm: true
+  use_seq: true
+
+debug:
+  decoder_checkpoint: null
+
+plan_config:
+  horizon: 5
+  receding_horizon: 15
+  action_block: 1
+  use_past_context: true
+
+solver:
+  inner_solver:
+    physical_dim: 5
+    n_steps: 30
+
+world:
+  env_name: ${task.env_name}
+  num_envs: ${eval.num_eval}
+  max_episode_steps: 200
+  history_size: 3
+  frame_skip: 5
+  env_type: single
+  ob_type: states
+  multiview: false
+  width: 224
+  height: 224
+  visualize_info: false
+  terminate_at_goal: true
+
+dataset:
+  stats: ${task.dataset_stats}
+  keys_to_cache:
+    - action
+
+full: true
+
+eval:
+  num_eval: ${task.num_eval}
+  eval_budget: ${task.eval_budget}
+  dataset_name: ${task.dataset_name}
+  goal_offset_steps: ${task.goal_offset_steps}
+  debug_video: false
+  start_offset: 5
+  img_size: 224
+  callables:
+    - method: set_state
+      args:
+        qpos:
+          value: qpos
+        qvel:
+          value: qvel
+    - method: set_target_pos
+      args:
+        cube_id:
+          value: 0
+          in_dataset: false
+        target_pos:
+          value: goal_privileged_block_0_pos
+        target_quat:
+          value: goal_privileged_block_0_quat

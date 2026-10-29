@@ -1,0 +1,42 @@
+diff --git a/stable_worldmodel/envs/pusht/env.py b/stable_worldmodel/envs/pusht/env.py
+index d3815c0..cb0a1d9 100644
+--- a/stable_worldmodel/envs/pusht/env.py
++++ b/stable_worldmodel/envs/pusht/env.py
+@@ -93,6 +93,15 @@ class PushT(gym.Env):
+                                    (2 * ws if escapable_block else ws), np.pi * 2, ws, ws]),
+                     dtype=np.float64,
+                 ),
++                # block linear+angular velocity (vx, vy, angvel). NOT in 'state'
++                # (which the WM/scaler/success all assume is 7-dim) — additive key
++                # consumed only by the real-env oracle cost model. Harmless to the
++                # WM (encodes pixels only) and to dataset caching (keys_to_cache).
++                'block_vel': spaces.Box(
++                    low=np.array([-1e4, -1e4, -1e3]),
++                    high=np.array([1e4, 1e4, 1e3]),
++                    dtype=np.float64,
++                ),
+             }
+         )
+ 
+@@ -331,7 +340,9 @@ class PushT(gym.Env):
+         state = self._get_obs()
+         proprio = np.concatenate((state[:2], state[-2:]))
+ 
+-        observation = {'proprio': proprio, 'state': state}
++        observation = {'proprio': proprio, 'state': state,
++                       'block_vel': np.array([*self.block.velocity,
++                                              self.block.angular_velocity], dtype=np.float64)}
+         info = self._get_info()
+ 
+         return observation, info
+@@ -363,7 +374,9 @@ class PushT(gym.Env):
+         # make the observation
+         state = self._get_obs()
+         proprio = np.concatenate((state[:2], state[-2:]))
+-        observation = {'proprio': proprio, 'state': state}
++        observation = {'proprio': proprio, 'state': state,
++                       'block_vel': np.array([*self.block.velocity,
++                                              self.block.angular_velocity], dtype=np.float64)}
+ 
+         # collect info
+         info = self._get_info()

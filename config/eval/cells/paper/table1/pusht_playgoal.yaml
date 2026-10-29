@@ -1,0 +1,17 @@
+# @package _global_
+# Table I, Play+Goal baseline.
+# Published run: findings/260907_final_dtg_s1_warm/runs/table1/pg_plain_goalsettle (Hydra record logs_smoke/hydra/pg_plain_goalsettle_13009120).
+# Base recipe: config/eval/cells/pusht_wm_full_goalframe.yaml; the keys below are that run's command-line overrides,
+# machine paths rewritten to ${cache_dir} (= $STABLEWM_HOME). Generated 2026-10-27; do not edit by hand.
+defaults:
+  - ../../pusht_wm_full_goalframe
+  - _self_
+task: {policy_config_group: agg_plainM2, dataset_stats: agg_plain_main2, eval_budget: 435}
+dataset: {stats: agg_plain_main2}
+solver:
+  inner_solver:
+    action_clamp: [4.8195, 4.8568]
+    env_clip_range: [-1.0, 1.0]
+plan_config: {receding_horizon: 3}
+world: {escapable_block: true, max_episode_steps: 870}
+policy: {goal_frame_mode: settle}

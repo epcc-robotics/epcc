@@ -1,0 +1,54 @@
+# Multiview MPC solver: subclass of latent_modules.mpc.MPCSolver that encodes reference
+# trajectories with BOTH agentview `pixels` and `wrist_pixels` streams (required
+# by MultiViewJEPA.encode). Identical cost/inner-solver setup as mpc.yaml.
+_target_: eval_mpc_multiview.MultiviewMPCSolver
+_recursive_: false
+inner_solver:
+  _target_: stable_worldmodel.solver.CEMSolver
+  # batch_size > 1 now safe: cost.py was patched 2026-04-22 evening to handle
+  # per-env _ref_idx/_ref_step (each env has its own reference / timestep via
+  # torch.gather on register_buffer("_refs_padded")). solver.py pre-encodes both
+  # pixels + wrist_pixels once per solve; jepa_perview.py rollout now reads the
+  # precomputed 4-D emb (384-d concat). Dim-agnostic so MV fused 192-d also OK.
+  # Set to >= n_eval to process all envs in a single CEM batch.
+  batch_size: 25
+  # num_samples: 300
+  num_samples: 1000
+  var_scale: 1.0
+  # n_steps: 30
+  n_steps: 40
+  topk: 30
+  device: "cuda"
+  seed: ${seed}
+  # Normalized-space clamp on CEM samples + mean. env-agnostic default.
+  # Override per env with a per-dim list in the env yaml (see multiview_cube
+  # / multiview_scene). Formula per dim i (to cover env ±1 training range):
+  #   B_i = max((1 - mean_i)/std_i, (1 + mean_i)/std_i)
+  # from the env's WM-training StandardScaler. null to disable.
+  action_clamp: 2.0
+  binary_gripper: false
+  # Env-space projection range. Scaler injected at runtime via
+  # solver.inner_solver.set_action_scaler() (eval_mpc_multiview.py).
+  env_clip_range: [-1.0, 1.0]
+  # state (default) projects candidates in place; elites + mean inherit
+  # projected values so mean is strictly bounded to env ±1 (conceptually
+  # correct — actions the WM sees match what will execute). "cost_only"
+  # projects a copy for cost eval only so mean can overshoot (matches
+  # pre-refactor empirical behaviour; sometimes higher reach on cube).
+  # "none" disables projection.
+  projection_mode: state
+cost_weights:
+  tracking: 1.0
+  terminal: 0.0
+  action: 0.01
+  # Temporal-smoothness penalty Σ‖a_{t+1}-a_t‖² over all phys dims.
+  # Matches MPCC cell-level overrides; turns terminal-only CEM (cube_wm_full)
+  # from jerky/0% into a working baseline. Override per-cell if you need 0.
+  action_smooth: 1.0
+  action_smooth_all_dims: true
+  distance: l2  # l2 | cosine | l2_normalized
+reference:
+  episode_idx: 0
+  dataset_name: ${eval.dataset_name}
+  chunk_size: 64
+  cache_dir: ${cache_dir}

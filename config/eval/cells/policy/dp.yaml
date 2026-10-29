@@ -1,0 +1,17 @@
+# @package policy
+# In-process DPPolicy — wraps legacy CleanDiffuserDPPolicy via policy.dp.
+# Used by eval_unified.py (single Python process, no subprocess).
+_target_: policy.dp.DPPolicy
+ckpt_path: ${diffusion.ckpt_path}
+train_h5_path: ${diffusion.train_h5_path}
+action_dim: ${diffusion.action_dim}
+action_horizon: ${diffusion.horizon}
+action_steps: ${diffusion.action_steps}
+obs_steps: ${diffusion.obs_steps}
+image_size: ${diffusion.image_size}
+n_views: ${diffusion.n_views}
+crop_shape: ${diffusion.crop_shape}
+sample_steps: ${diffusion.sample_steps}
+use_group_norm: ${diffusion.use_group_norm}
+use_seq: ${diffusion.use_seq}
+nn: ${diffusion.nn}

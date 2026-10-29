@@ -1,0 +1,30 @@
+# @package _global_
+# Slippery Expert-Only (demo-only WM) DTG-MPCC with the warm history ring, for the H84/K6/
+# stride-1 generator — the Fig.4 dashed-line cell (published as
+# logs_sh_repro_wallsoff/exp6_slippery_demoonly_wallsoff from slippery_pusht_dtg_mpcc_demoonly).
+# Thin child: inherits the demo-only WM (wm_demoonly/slippery_park), its literal dataset.stats
+# (expert_slow_050_n200_d035_park) and clamp [12.6481, 12.9347]; changes only the campaign's
+# three knobs. wm_demoonly/slippery_park freezes the same slippery base encoder as agg_slip*,
+# so the park base cache is its latent space too.
+defaults:
+  - slippery_pusht_dtg_mpcc_demoonly
+  - override /policy: dtg_mpcc_warm
+  - _self_
+
+diffusion:
+  # MUST be overridden on the command line with the h84 stride-1 slippery generator.
+  ckpt_path: ${cache_dir}/PLACEHOLDER_SET_diffusion.ckpt_path_ON_THE_COMMAND_LINE.pt
+
+solver:
+  reference:
+    stride: 1
+
+world:
+  escapable_block: true
+
+eval:
+  save_traj: true
+
+warm_ring:
+  enabled: true
+  latent_h5: ${cache_dir}/slippery_pusht/data/latent/expert_slow_050_n200_d035_park_latents_lewm_base.h5

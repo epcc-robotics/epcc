@@ -1,0 +1,67 @@
+# Multi-view MPCC solver — ENSEMBLE variant for diffusion-MPCC.
+# Subclass of MultiviewMPCCSolver that runs N candidate diffusion references
+# per env in a single batched CEM pass (effective batch = n_envs * N).
+#
+# GT-MPCC uses `mpcc_multiview.yaml` (this file is loaded ONLY when
+# `cfg.solver=mpcc_multiview_ensemble` is set in the diffusion-MPCC sbatch).
+#
+# Knobs that differ from `mpcc_multiview.yaml`:
+#   * _target_                    → EnsembleMPCCSolver
+#   * n_ensemble                  → number of candidate refs per env (N)
+#   * inner_solver.batch_size     → n_envs * N (one-shot batched CEM)
+#   * inner_solver.num_samples    → kept lower than mpcc_multiview to budget
+#                                    the n_envs * N inflation. Tune as needed.
+#
+# For diffusion-MPCC override at submit time:
+#   +solver.reference.stride=5     (matches diffusion frame stride)
+#   +solver.n_ensemble=4 / 8 / etc.
+#   +solver.inner_solver.num_samples=2000  (optional perf knob)
+_target_: latent_modules.mpcc.solver_ensemble.EnsembleMPCCSolver
+_recursive_: false
+n_ensemble: 4
+
+inner_solver:
+  _target_: stable_worldmodel.solver.CEMSolver
+  # batch_size MUST be ≥ n_envs * n_ensemble for one-shot batched solve.
+  # Default 100 covers n_envs up to 25 with N=4 (or n_envs=10 with N=10).
+  batch_size: 100
+  num_samples: 300
+  var_scale: 1.0
+  n_steps: 30
+  topk: 30
+  device: "cuda"
+  seed: ${seed}
+
+  # Phys shaping (mirror cube AW MPCC) — applied to candidates[..., :physical_dim]
+  action_clamp: [2.36, 1.57, 1.25, 1.64, 1.20]   # per env-action-dim
+  binary_gripper: false
+  env_clip_range: [-1.0, 1.0]
+  projection_mode: state
+  # Scaler injected at runtime via solver._inner_solver.set_action_scaler()
+  # (see eval_mpcc_multiview.py); tiles per-env-phys (5,) → flat_phys_dim (25,).
+
+  # MPCC additions (ν > 0 strict, slow allowed, natural cap at 1.0)
+  physical_dim: 25     # phys 5 dim × outer action_block 5; rest (1) is ν
+  nu_clamp: [0.0, 1.0] # ν > 0 enforced; ν ≤ 1.0 = natural pace cap
+  nu_init: 0.5         # cold-start batch_mean for ν (mode at midpoint)
+  nu_var_scale: 0.25   # narrow exploration; 99.7% of N(0.5, 0.25) ∈ [-0.25, 1.25]
+
+cost_weights:
+  contour: 0.10722
+  progress: 16.84342
+  action: 0.0058469
+  grip_smooth: 0.0   # Σ(Δa)² over horizon — 0 disables; gripper-only by default
+  grip_smooth_all_dims: false   # toggle: false = gripper-only; true = ALL phys dims
+
+reference:
+  episode_idx: 0
+  dataset_name: ${eval.dataset_name}
+  c: 0.3              # expert speed ratio vs WM training (cube AW: 0.3)
+  stride: 1           # env-step span per ref frame; diffusion-MPCC overrides via
+                       # +solver.reference.stride=5 (matches diffusion frame stride).
+  frameskip: 1        # legacy ref waypoint granularity (not used by diffusion-MPCC)
+  chunk_size: 64
+  cache_dir: ${cache_dir}
+  view_dims: null     # per-view dim split (e.g. [192, 192] for AW concat)
+  view_weights: null  # per-view weight (e.g. [1.0, 2.0] = 2× wrist)
+  interpolation: linear   # ref interpolation: 'linear' or 'bspline'

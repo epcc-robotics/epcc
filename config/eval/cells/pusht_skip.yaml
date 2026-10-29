@@ -1,0 +1,85 @@
+# @package _global_
+# Q1: trained SkiP DP on PLAIN PushT. Mirrors pusht_dp.yaml EXACTLY (init,
+# success, budget, DP arch) but wraps the inner DP in PushTSkipPolicy and points
+# to the SkiP-relabeled abs-agent-pos DP (trained via PushTSVSkipImageDataset,
+# job 11378155, 100k). The inner DP un-normalizes to abs agent pos via the ckpt's
+# sibling normalizer_stats.npz; PushTSkipPolicy converts abs->relative action.
+defaults:
+  - /task: pusht
+  - /policy: pusht_skip
+  - _self_
+
+seed: 42
+cache_dir: ${oc.env:STABLEWM_HOME}
+
+output:
+  run_name: pusht_skip_n50
+  findings_dir: findings/260521_baseline_setup
+  logdir_subkey: pusht_skip
+
+task:
+  policy_config_group: pusht_wm/lewm
+  eval_budget: 489
+  control_timestep_s: 0.1
+
+diffusion:
+  # trained SkiP DP (abs-agent-pos, MSK relabel) — plain expert_slow_025, 100k.
+  # FAITHFUL PORT (velocity-stop KF + 50/50 sampling restored, stop_frac=0.5),
+  # retrain job 11417704 (2026-07-23). Old unfaithful-port ckpt was ...225949.
+  ckpt_path: ${cache_dir}/checkpoints/skip/pusht_h16/models/model_final.pt
+  train_h5_path: ${cache_dir}/datasets/expert_slow_025_n200_centered_v2.h5
+  nn: chi_unet
+  horizon: 16
+  obs_steps: 2
+  action_steps: 8
+  action_dim: 2
+  image_size: 96
+  n_views: 1
+  crop_shape: [84, 84]
+  sample_steps: 50
+  use_group_norm: true
+  use_seq: true
+
+debug:
+  decoder_checkpoint: null
+
+plan_config:
+  horizon: 5
+  receding_horizon: 15
+  action_block: 1
+  use_past_context: true
+
+solver:
+  inner_solver:
+    physical_dim: 2
+    n_steps: 30
+
+world:
+  env_name: ${task.env_name}
+  num_envs: ${eval.num_eval}
+  max_episode_steps: ${task.eval_budget}
+  history_size: 3
+  frame_skip: 1
+  resolution: 96
+
+dataset:
+  stats: ${task.dataset_stats}
+  keys_to_cache:
+    - action
+    - state
+
+full: true
+
+eval:
+  num_eval: ${task.num_eval}
+  eval_budget: ${task.eval_budget}
+  dataset_name: ${task.dataset_name}
+  goal_offset_steps: 25
+  debug_video: false
+  img_size: 96
+  start_offset: 5
+  callables:
+    - method: _set_state
+      args:
+        state:
+          value: state

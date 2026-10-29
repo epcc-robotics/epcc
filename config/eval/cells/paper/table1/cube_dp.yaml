@@ -1,0 +1,9 @@
+# @package _global_
+# Table I, DP baseline.
+# Published run: findings/260521_baseline_setup/logs_sail_savetraj/cube_dp_savetraj_n50 (Hydra record logs_smoke/hydra/cube_dp_savetraj_n50_11211633).
+# Base recipe: config/eval/cells/cube_dp.yaml; the keys below are that run's command-line overrides,
+# machine paths rewritten to ${cache_dir} (= $STABLEWM_HOME). Generated 2026-10-27; do not edit by hand.
+defaults:
+  - ../../cube_dp
+  - _self_
+eval: {save_traj: true}

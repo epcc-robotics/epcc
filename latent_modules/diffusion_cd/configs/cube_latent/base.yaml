@@ -1,0 +1,79 @@
+pipeline_name: cube_latent_velloss
+mode: train
+
+# ---- data ----
+h5_path: ${oc.env:STABLEWM_HOME}/cube/latents/cube_multiview_diffusion_aw_c0.3_postpad_fullscale.h5
+max_episodes: null         # null = use all successful episodes
+val_frac: 0.1
+num_workers: 8
+padding_mode: valid_only
+use_is_pad: false          # only meaningful for dp / half_dp padding
+
+# ---- window ----
+horizon: 18                # H — latent trajectory length (matches 70% baseline)
+history: 2                 # K — history frames
+stride: 5                  # env-frames between adjacent latent frames
+
+# ---- dataset (Hydra dispatch — task-specific class) ----
+dataset:
+  _target_: latent_diffusion_cd.dataset.cube_latent_dataset.CubeLatentDataset
+  h5_path: ${h5_path}
+  horizon: ${horizon}
+  history: ${history}
+  stride: ${stride}
+  max_episodes: ${max_episodes}
+  normalizer_kind: ${normalizer_kind}
+  padding_mode: ${padding_mode}
+  seed: ${seed}
+  val_frac: ${val_frac}
+
+# ---- diffusion target / loss ----
+predict_noise: false       # A/C ablations: x0; B ablations: True (ε)
+lambda_vel: 3.0            # matches 70% baseline E_v3
+lambda_acc: 0.0
+motion_only_pad: false
+fix_mask_first: true       # anchor first latent frame
+
+# ---- backbone ----
+nn: chi_unet               # chi_unet | dit | chi_transformer
+model_dim: 384             # matches 70% baseline DiT d_model
+depth: 8                   # DiT depth (ignored by chi_unet which uses dim_mult)
+n_heads: 6                 # DiT heads
+dim_mult: [1, 2, 2]        # ChiUNet1d down/up stack
+cond_emb_dim: 256
+cond_hidden: 256
+cond_dropout: 0.0
+
+# ---- normalizer ----
+normalizer_kind: standard  # standard | minmax | none
+
+# ---- DDPM ----
+diffusion_steps: 50
+beta_schedule: cosine
+x_clip: false              # off for standard normalizer; consider true for minmax
+x_clip_abs: 1.0
+
+# ---- train ----
+device: cuda:0
+seed: 42
+gradient_steps: 100000
+batch_size: 256
+lr: 2.0e-4
+ema_rate: 0.9999
+
+# ---- logging ----
+log_freq: 200
+val_freq: 2000
+save_freq: 10000
+exp_name: cube_latent_${nn}_pn${predict_noise}_${normalizer_kind}_${now:%Y%m%d_%H%M%S}
+save_path: ${oc.env:STABLEWM_HOME}/train/dtg
+project: CleanDiffuser
+group: cube_latent_velloss
+wandb_mode: offline
+work_dir: ${save_path}/${pipeline_name}/${exp_name}/${seed}
+
+hydra:
+  run:
+    dir: ${work_dir}
+  job:
+    chdir: false
