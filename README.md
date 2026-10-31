@@ -2,7 +2,7 @@
 
 Seunghoon Cho, Wonsuhk Jung, Sundhar Vinodh Sangeetha, Shreyas Kousik
 
-**EPCC** · [Paper](https://arxiv.org/abs/2609.22798) · [Website](https://expert-play-contouring.netlify.app/) · Checkpoints and data (coming soon)
+**EPCC** · [Paper](https://arxiv.org/abs/2609.22798) · [Website](https://expert-play-contouring.netlify.app/) · [Checkpoints and data](https://huggingface.co/datasets/epcc-robotics/epcc)
 
 **TL;DR.**
 EPCC learns a latent world model from slow expert demonstrations together with fast play
@@ -14,7 +14,9 @@ Cube experiments, its baselines (Diffusion Policy, SkiP, SAIL, SuP, Play+Goal), 
 of every model involved.
 
 ## News
-- 2026-10-29: code release. Checkpoints and data will follow on Hugging Face.
+- 2026-10-30: checkpoints, evaluation data and the paper's run directories released on
+  [Hugging Face](https://huggingface.co/datasets/epcc-robotics/epcc).
+- 2026-10-29: code release.
 
 ## Installation
 
@@ -37,18 +39,22 @@ change relative to upstream.
 
 ## Checkpoints and data
 
-The checkpoints and data will be released on Hugging Face (coming soon). The release archive
-contains every checkpoint and evaluation dataset the paper's evaluation cells use (world
-models, contour generators, DP / SkiP / SAIL / SuP models, demonstration sets, latent caches)
-and the precomputed observation/action scaler statistics (`stats/`). Point `STABLEWM_HOME` at it:
+Checkpoints, evaluation data and the paper's run directories are on Hugging Face:
+[epcc-robotics/epcc](https://huggingface.co/datasets/epcc-robotics/epcc) (about 100 GB, MIT). The `hf` command comes with the installation above.
 
 ```bash
-export STABLEWM_HOME=/path/to/epcc_data
+hf download epcc-robotics/epcc --repo-type dataset --local-dir epcc_data
+export STABLEWM_HOME=$PWD/epcc_data/data              # or set it in cluster.env
+export EPCC_PUBLISHED=$PWD/epcc_data/published_runs   # read by the Table I / II scorers
 ```
 
-The layout is listed in [docs/DATA.md](docs/DATA.md). The paper's run directories will be
-released alongside (`published_runs/`). The world-model training corpora are not part of the
-archive.
+`data/` holds every checkpoint and evaluation dataset the paper's evaluation cells use (world
+models, contour generators, DP / SkiP / SAIL / SuP models, demonstration sets, latent caches)
+and the precomputed observation/action scaler statistics (`stats/`); its files are listed in
+[docs/DATA.md](docs/DATA.md). `published_runs/` holds the run directories behind Table I and
+Table II. To rescore them without running any policy, download only that folder (add
+`--include "published_runs/*"`, about 200 MB). The world-model training corpora are not
+included.
 
 ## Quick start
 

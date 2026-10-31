@@ -23,7 +23,8 @@ Read `README.md` first if it has not been read in this session. This guide adds 
 ## Before running anything
 
 1. `git submodule status` shows two commits without a leading `-` (otherwise `git submodule update --init`).
-2. `cluster.env` exists (copy `cluster.env.example`) and `STABLEWM_HOME` points at the released data;
+2. `cluster.env` exists (copy `cluster.env.example`) and `STABLEWM_HOME` points at the `data/` folder
+   of the Hugging Face release `epcc-robotics/epcc` (download command: README "Checkpoints and data");
    `$STABLEWM_HOME/stats/` holds the cached scaler statistics.
 3. `python paper/common/check_cells.py` passes. It fails when a shared base config under
    `config/eval/` was edited in a way that changes a paper cell; do not "fix" it by regenerating the
@@ -57,8 +58,8 @@ python paper/common/score_runs.py --out results/scores.json results/runs/<run> [
   Compare success rates with a two-sided Fisher exact test over the 50 episodes rather than by eye;
   differences of a few episodes are expected.
 - Table I equal-time numbers: `paper/table1/equal_time/score_table1_eqtime.py`; Table II:
-  `paper/table2/table2_final.py`. Both read published runs from `EPCC_PUBLISHED` (a directory with the
-  `findings/` layout of the published-runs archive) and write to `EPCC_PAPER_OUT` (default
+  `paper/table2/table2_final.py`. Both read published runs from `EPCC_PUBLISHED` (the
+  `published_runs/` folder of the Hugging Face release) and write to `EPCC_PAPER_OUT` (default
   `results/paper`).
 
 ## Result contract

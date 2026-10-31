@@ -3,7 +3,8 @@
 Scripts that reproduce the paper's tables and figures from evaluation run
 directories. They were moved here on 2026-10-27 from the research tree's
 `findings/<campaign>/scripts/`. The Table I equal-time and Table II scorers read the
-published runs from `EPCC_PUBLISHED`; the Fig. 3, Fig. 4 and scaling scripts still expect the
+published runs from `EPCC_PUBLISHED` (the `published_runs/` folder of the Hugging Face release
+`epcc-robotics/epcc`); the Fig. 3, Fig. 4 and scaling scripts still expect the
 research layout of run directories and are being parametrized.
 
 | Directory | Paper element | Origin campaign |

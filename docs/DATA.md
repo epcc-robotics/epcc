@@ -2,7 +2,7 @@
 
 Every launcher reads `STABLEWM_HOME` (set in `cluster.env`) as the root of datasets,
 checkpoints and caches. The layout below is what the paper cells in `config/eval/cells/paper/`
-reference; the release archive (checkpoints and datasets, published separately) unpacks into it.
+reference; the `data/` folder of the Hugging Face release ([epcc-robotics/epcc](https://huggingface.co/datasets/epcc-robotics/epcc)) has this layout.
 Training outputs go under `train/{wm,dtg,dp}/`; evaluation outputs stay in the repository under `results/`.
 
 Checkpoints keep the trainer work-dir layout `<run>/models/<ckpt>.pt` with the sibling files the loaders read:
@@ -112,7 +112,7 @@ Checkpoints keep the trainer work-dir layout `<run>/models/<ckpt>.pt` with the s
 | `checkpoints/skip/pusht_h16/normalizer_stats.npz` | table1/pusht_skip |
 | `checkpoints/skip/slippery_pusht_h16/models/model_final.pt` | table1/slippery_pusht_skip |
 | `checkpoints/skip/slippery_pusht_h16/normalizer_stats.npz` | table1/slippery_pusht_skip |
-| `checkpoints/slippery_pusht/lewm_object.ckpt` | 7 cells |
+| `checkpoints/slippery_pusht/lewm/lewm_object.ckpt` | 7 cells |
 | `checkpoints/wm_demoonly/cube_demo_object.ckpt` | fig4/cube_DEMO |
 | `checkpoints/wm_playsub/cube_object.ckpt` | fig4/cube_CTRL |
 | `cube/dp/models/model_90000.pt` | table1/cube_dp, table1/cube_sup |

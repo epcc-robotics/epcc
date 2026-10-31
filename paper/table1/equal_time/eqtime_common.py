@@ -42,7 +42,7 @@ EPS = 1e-6
 TARGET_S = 5.0
 HERE = Path(__file__).resolve().parent
 # Published run directories: a tree with the research layout findings/<campaign>/..., i.e. the
-# release archive's published_runs/ (EPCC_PUBLISHED). Outputs go to EPCC_PAPER_OUT/table1_equal_time.
+# Hugging Face release's published_runs/ (EPCC_PUBLISHED). Outputs go to EPCC_PAPER_OUT/table1_equal_time.
 PUB = Path(os.environ.get("EPCC_PUBLISHED", REPO))
 ROOT = Path(os.environ.get("EPCC_PAPER_OUT", REPO / "results" / "paper")) / "table1_equal_time"
 
